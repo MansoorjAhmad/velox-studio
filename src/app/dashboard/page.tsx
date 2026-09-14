@@ -132,10 +132,17 @@ export default function DashboardPage() {
   }, [supabase]);
 
   useEffect(() => {
+    let active = true;
     syncTradingConfigFromServer();
     syncActiveAccountFromServer();
-    load();
-    setTradingConfig(getTradingConfig());
+    async function init() {
+      await load();
+      if (active) {
+        setTradingConfig(getTradingConfig());
+      }
+    }
+    init();
+
     const handleAccChange = async () => {
       setAccountSwitching(true);
       await load();
@@ -145,6 +152,7 @@ export default function DashboardPage() {
     window.addEventListener("active_account_changed", handleAccChange);
     window.addEventListener("trading_config_changed", handleConfigChange);
     return () => {
+      active = false;
       window.removeEventListener("active_account_changed", handleAccChange);
       window.removeEventListener("trading_config_changed", handleConfigChange);
     };
@@ -307,8 +315,6 @@ export default function DashboardPage() {
     return streak;
   }, [calendarMap]);
 
-  const profitFactorDisplay = metrics.profitFactor === Infinity ? "∞" : metrics.profitFactor.toFixed(2);
-
   if (initialLoad) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -429,88 +435,197 @@ export default function DashboardPage() {
         hasRoutine={routineItemsCount > 0}
       />
 
-      {/* Primary KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 animate-stagger">
-        <Card className="card-hover">
-          <CardContent className="p-3.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <DollarSign className="w-3 h-3 text-foreground-subtle" />
-              <span className="text-[9px] text-foreground-subtle uppercase tracking-wider font-bold">Today&apos;s P&L</span>
+      {/* Empty State Banner if 0 Trades Logged */}
+      {trades.length === 0 && (
+        <Card className="border-dashed border-2 border-border bg-surface/50 p-6 md:p-8 text-center animate-fade-in">
+          <div className="max-w-md mx-auto space-y-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto">
+              <Sparkles className="w-6 h-6 text-brand" />
             </div>
-            <p className={cn("text-2xl font-medium font-display", todayPnl >= 0 ? "text-profit" : "text-loss")}>
-              {todayPnl >= 0 ? "+" : ""}<AnimatedCounter value={todayPnl} format="currency" />
-            </p>
-            <p className="text-[9px] text-foreground-muted mt-1">{todayTrades.length} trades today</p>
+            <div>
+              <h3 className="text-xl font-display font-semibold text-foreground">Welcome to Your Trading Command Center</h3>
+              <p className="text-xs text-foreground-muted mt-1 leading-relaxed">
+                Log your first execution to activate institutional Net P&amp;L telemetry, R-multiples, the Trader Index discipline matrix, and Zenith AI forensics.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Link href="/dashboard/journal">
+                <Button size="sm" className="font-semibold text-xs gap-1.5 bg-foreground text-background hover:bg-foreground/90">
+                  <DollarSign className="w-3.5 h-3.5" /> Log First Trade
+                </Button>
+              </Link>
+              <Link href="/dashboard/accounts">
+                <Button size="sm" variant="outline" className="text-xs font-medium">
+                  Configure Accounts
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Primary KPI Metric Hierarchy: Executive Hero Dominance */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* The ONE number that matters most — visually commanding hero card */}
+        <Card className="lg:col-span-7 border-border bg-surface relative overflow-hidden flex flex-col justify-between shadow-xs card-hover">
+          <div className="absolute -right-16 -top-16 w-60 h-60 rounded-full bg-brand/5 blur-2xl pointer-events-none" />
+          <CardContent className="p-6 md:p-7 flex flex-col justify-between h-full space-y-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-profit animate-pulse" />
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-foreground-subtle">
+                    {activeAccId === "all" ? "Portfolio Net Realized P&L" : "Account Net Realized P&L"}
+                  </span>
+                </div>
+                <Badge variant={metrics.netPnl >= 0 ? "profit" : "loss"} className="text-[10px] font-mono font-bold px-2 py-0.5">
+                  {metrics.netPnl >= 0 ? "+" : ""}{activeBalance > 0 ? ((metrics.netPnl / activeBalance) * 100).toFixed(2) : "0.00"}% ROI
+                </Badge>
+              </div>
+
+              {/* Dominant Figure */}
+              <div className="mt-3">
+                <div className={cn(
+                  "font-display font-medium text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+                  metrics.netPnl >= 0 ? "text-profit" : "text-loss"
+                )}>
+                  {metrics.netPnl >= 0 ? "+" : ""}<AnimatedCounter value={metrics.netPnl} format="currency" />
+                </div>
+                <p className="text-xs text-foreground-muted mt-2 font-mono flex items-center gap-2">
+                  <span>Current Capital Basis:</span>
+                  <strong className="text-foreground">{formatCurrency(activeBalance + metrics.netPnl)}</strong>
+                  <span className="text-border">|</span>
+                  <span>{metrics.closedTrades} closed positions</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Session Context & Win-Loss Ratio Bar */}
+            <div className="space-y-3 pt-2 border-t border-border/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground-subtle">Today:</span>
+                  <span className={cn("font-bold", todayPnl >= 0 ? "text-profit" : "text-loss")}>
+                    {todayPnl >= 0 ? "+" : ""}{formatCurrency(todayPnl)}
+                  </span>
+                  <span className="text-foreground-subtle">({todayTrades.length} trades)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground-subtle">Win Ratio:</span>
+                  <span className="font-bold text-foreground">{(metrics.winRate * 100).toFixed(1)}%</span>
+                  <span className="text-foreground-subtle">({metrics.wins}W / {metrics.losses}L)</span>
+                </div>
+              </div>
+
+              {/* Visual Win/Loss Segment Bar */}
+              <div className="h-2 w-full rounded-full bg-surface-3 flex overflow-hidden">
+                <div
+                  className="h-full bg-profit transition-all duration-700 rounded-l-full"
+                  style={{ width: `${metrics.closedTrades > 0 ? (metrics.wins / metrics.closedTrades) * 100 : 50}%` }}
+                />
+                <div
+                  className="h-full bg-loss transition-all duration-700 rounded-r-full"
+                  style={{ width: `${metrics.closedTrades > 0 ? (metrics.losses / metrics.closedTrades) * 100 : 50}%` }}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-3.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Target className="w-3 h-3 text-foreground-subtle" />
-              <span className="text-[9px] text-foreground-subtle uppercase tracking-wider font-bold">Monthly P&L</span>
+        {/* Secondary KPIs Companion Grid */}
+        <div className="lg:col-span-5 grid grid-cols-2 gap-3.5">
+          {/* Profit Factor */}
+          <Card className="card-hover border-border bg-surface p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-foreground-subtle" /> Profit Factor
+                </span>
+                <span className={cn(
+                  "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                  metrics.profitFactor >= 2 ? "bg-profit/15 text-profit" : metrics.profitFactor >= 1.2 ? "bg-brand/15 text-brand" : "bg-surface-2 text-foreground-muted"
+                )}>
+                  {metrics.profitFactor >= 2 ? "Elite" : metrics.profitFactor >= 1.2 ? "Viable" : "Under 1.2"}
+                </span>
+              </div>
+              <div className="font-display font-medium text-2xl text-foreground mt-1.5">
+                {metrics.profitFactor === Infinity ? "∞" : <AnimatedCounter value={metrics.profitFactor} format="decimal" decimals={2} />}
+              </div>
             </div>
-            <p className={cn("text-2xl font-medium font-display", monthPnl >= 0 ? "text-profit" : "text-loss")}>
-              {monthPnl >= 0 ? "+" : ""}<AnimatedCounter value={monthPnl} format="currency" />
+            <p className="text-[10px] text-foreground-muted font-mono mt-2">
+              Gross Win / Gross Loss ratio
             </p>
-            <div className="h-1 rounded-full bg-surface-3 overflow-hidden mt-1.5">
-              <div className="h-full bg-gradient-to-r from-brand to-profit rounded-full transition-all duration-700" style={{ width: `${monthTargetPct}%` }} />
-            </div>
-            <p className="text-[9px] text-foreground-muted mt-1">{monthTargetPct}% of {formatCurrency(monthlyTarget)} target</p>
-          </CardContent>
-        </Card>
+          </Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-3.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <BarChart3 className="w-3 h-3 text-foreground-subtle" />
-              <span className="text-[9px] text-foreground-subtle uppercase tracking-wider font-bold">Win Rate</span>
+          {/* Max Drawdown */}
+          <Card className="card-hover border-border bg-surface p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-foreground-subtle" /> Max Drawdown
+                </span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-loss/15 text-loss font-mono">
+                  -{(drawdown.maxDrawdownPct * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="font-display font-medium text-2xl text-loss mt-1.5">
+                -<AnimatedCounter value={drawdown.maxDrawdown} format="currency" />
+              </div>
             </div>
-            <p className="text-2xl font-medium font-display text-foreground">
-              <AnimatedCounter value={metrics.winRate * 100} format="decimal" decimals={1} />%
+            <p className="text-[10px] text-foreground-muted font-mono mt-2">
+              Deepest valley from peak
             </p>
-            <p className="text-[9px] text-foreground-muted mt-1">{metrics.wins}W / {metrics.losses}L</p>
-          </CardContent>
-        </Card>
+          </Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-3.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Shield className="w-3 h-3 text-foreground-subtle" />
-              <span className="text-[9px] text-foreground-subtle uppercase tracking-wider font-bold">Profit Factor</span>
+          {/* Monthly Target Runway */}
+          <Card className="card-hover border-border bg-surface p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-foreground-subtle" /> Monthly Target
+                </span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-surface-2 text-foreground font-mono">
+                  {monthTargetPct}%
+                </span>
+              </div>
+              <div className={cn("font-display font-medium text-2xl mt-1.5", monthPnl >= 0 ? "text-profit" : "text-loss")}>
+                {monthPnl >= 0 ? "+" : ""}<AnimatedCounter value={monthPnl} format="currency" />
+              </div>
             </div>
-            <p className="text-2xl font-medium font-display text-foreground">
-              {metrics.profitFactor === Infinity ? "∞" : <AnimatedCounter value={metrics.profitFactor} format="decimal" decimals={2} />}
-            </p>
-            <p className="text-[9px] text-foreground-muted mt-1">{metrics.profitFactor >= 1.5 ? "Healthy edge" : "Build edge"}</p>
-          </CardContent>
-        </Card>
+            <div className="mt-2 space-y-1">
+              <div className="h-1 rounded-full bg-surface-3 overflow-hidden">
+                <div className="h-full bg-profit rounded-full transition-all duration-700" style={{ width: `${monthTargetPct}%` }} />
+              </div>
+              <p className="text-[10px] text-foreground-muted font-mono">
+                {monthRunway.daysLeft}d remaining in cycle
+              </p>
+            </div>
+          </Card>
 
-        <Card className="card-hover">
-          <CardContent className="p-3.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Activity className="w-3 h-3 text-foreground-subtle" />
-              <span className="text-[9px] text-foreground-subtle uppercase tracking-wider font-bold">Max Drawdown</span>
+          {/* Current Streak */}
+          <Card className="card-hover border-border bg-surface p-4 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-foreground-subtle" /> Current Run
+                </span>
+                <span className={cn(
+                  "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase font-mono",
+                  streak.type === "win" ? "bg-profit/15 text-profit" : streak.type === "loss" ? "bg-loss/15 text-loss" : "bg-surface-2 text-foreground-muted"
+                )}>
+                  {streak.type === "win" ? "Win Streak" : streak.type === "loss" ? "Drawdown" : "Neutral"}
+                </span>
+              </div>
+              <div className="font-display font-medium text-2xl text-foreground mt-1.5 flex items-center gap-1.5">
+                <AnimatedCounter value={streak.count} format="number" />
+                <span className="text-xs font-normal text-foreground-subtle">consecutive</span>
+              </div>
             </div>
-            <p className="text-2xl font-medium font-display text-loss">
-              -<AnimatedCounter value={drawdown.maxDrawdown} format="currency" />
+            <p className="text-[10px] text-foreground-muted font-mono mt-2">
+              {streak.type === "win" ? "Discipline compound 🔥" : streak.type === "loss" ? "Watch tilt limits" : "Standby"}
             </p>
-            <p className="text-[9px] text-foreground-muted mt-1">{(drawdown.maxDrawdownPct * 100).toFixed(1)}% from peak</p>
-          </CardContent>
-        </Card>
-
-        <Card className="card-hover">
-          <CardContent className="p-3.5">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Flame className="w-3 h-3 text-foreground-subtle" />
-              <span className="text-[9px] text-foreground-subtle uppercase tracking-wider font-bold">Streak</span>
-            </div>
-            <p className="text-2xl font-medium font-display text-foreground">
-              <AnimatedCounter value={streak.count} format="number" />
-            </p>
-            <p className="text-[9px] text-foreground-muted mt-1">{streak.type === "win" ? "Win streak 🔥" : streak.type === "loss" ? "Loss streak" : "No streak"}</p>
-          </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
 
       {/* Weekly Velocity + R-Multiple + Confluence Edge */}
@@ -533,7 +648,7 @@ export default function DashboardPage() {
                   cursor={{ fill: "var(--surface-2)", radius: 4 }}
                   content={<ChartTooltip
                     labelFormatter={(l) => String(l)}
-                    formatter={(val, _n) => [formatCurrency(Number(val)), "P&L"]}
+                    formatter={(val) => [formatCurrency(Number(val)), "P&L"]}
                     colorBySign
                   />}
                 />

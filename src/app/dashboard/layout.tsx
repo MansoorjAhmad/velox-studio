@@ -7,6 +7,7 @@ import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
 import { ZenithAgent } from "@/components/zenith/zenith-agent";
 import { TopBar } from "@/components/layout/topbar";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { BrandSplash } from "@/components/ui/brand-splash";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -48,17 +49,7 @@ export default function DashboardLayout({
   }, [supabase, router]);
 
   if (loading) {
-    return (
-      <div className="flex min-h-svh items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="relative mx-auto w-12 h-12">
-            <div className="absolute inset-0 rounded-full border-2 border-brand/20" />
-            <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-brand animate-spin" style={{ animationDuration: "0.8s" }} />
-          </div>
-          <p className="text-xs text-foreground-subtle tracking-wide">Loading Velox Studio…</p>
-        </div>
-      </div>
-    );
+    return <BrandSplash message="Authenticating session and loading workspace…" />;
   }
 
   return (

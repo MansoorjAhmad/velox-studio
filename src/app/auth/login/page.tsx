@@ -10,6 +10,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight, AlertCircle } from "lucide-react";
 
+import { BrandSplash } from "@/components/ui/brand-splash";
+
 function authMessage(err: unknown): string {
   const msg = err instanceof Error ? err.message.toLowerCase() : "";
   if (msg.includes("rate limit") || msg.includes("429") || msg.includes("too many"))
@@ -26,6 +28,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -50,13 +53,17 @@ export default function LoginPage() {
         password,
       });
       if (signInErr) throw signInErr;
+      setAuthenticated(true);
       router.push("/dashboard");
     } catch (err) {
       setError(authMessage(err));
-    } finally {
       setLoading(false);
     }
   };
+
+  if (authenticated) {
+    return <BrandSplash message="Access verified. Entering trading environment…" />;
+  }
 
   return (
     <div className="flex min-h-svh w-full">

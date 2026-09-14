@@ -24,7 +24,6 @@ export default function JournalPage() {
   const [accountSwitching, setAccountSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
 
   const load = useCallback(async () => {
     const activeAccId = getActiveAccountId();
@@ -39,25 +38,40 @@ export default function JournalPage() {
   }, []);
 
   useEffect(() => {
-    load();
-    const handleAccChange = async () => { setAccountSwitching(true); await load(); setAccountSwitching(false); };
+    let active = true;
+    async function init() {
+      const activeAccId = getActiveAccountId();
+      const result = await getTrades(activeAccId);
+      if (active) {
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setError(null);
+          setTrades(result.data ?? []);
+        }
+        setInitialLoad(false);
+      }
+    }
+    init();
+
+    const handleAccChange = async () => {
+      setAccountSwitching(true);
+      await load();
+      setAccountSwitching(false);
+    };
     window.addEventListener("active_account_changed", handleAccChange);
-    return () => window.removeEventListener("active_account_changed", handleAccChange);
+    return () => {
+      active = false;
+      window.removeEventListener("active_account_changed", handleAccChange);
+    };
   }, [load]);
 
   const handleCreate = () => {
-    setEditingTrade(null);
-    setFormOpen(true);
-  };
-
-  const handleEdit = (t: Trade) => {
-    setEditingTrade(t);
     setFormOpen(true);
   };
 
   const handleSaved = () => {
     setFormOpen(false);
-    setEditingTrade(null);
     load();
   };
 
@@ -85,30 +99,57 @@ export default function JournalPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-3 animate-stagger">
-          {[
-            { label: "Closed executions", value: metrics.closedTrades, icon: ScanLine, tone: "text-brand" },
-            { label: "Net realized", value: `${metrics.netPnl >= 0 ? "+" : ""}${formatCurrency(metrics.netPnl)}`, icon: Target, tone: metrics.netPnl >= 0 ? "text-profit" : "text-loss" },
-            { label: "Profit factor", value: metrics.profitFactor === Infinity ? "∞" : metrics.profitFactor.toFixed(2), icon: ShieldAlert, tone: "text-warning" },
-            { label: "Current sequence", value: streak.count ? `${streak.count}${streak.type === "win" ? "W" : "L"}` : "—", icon: Flame, tone: streak.type === "win" ? "text-profit" : "text-foreground" },
-          ].map((stat) => (
-            <Card key={stat.label} className="card-hover">
-              <CardContent className="p-3.5">
-                <div className="flex items-center gap-1.5"><stat.icon className="w-3.5 h-3.5 text-foreground-subtle" /><span className="text-[9px] uppercase tracking-wider font-bold text-foreground-subtle">{stat.label}</span></div>
-                <p className={cn("mt-2 font-mono tabular text-xl font-extrabold", stat.tone)}>{stat.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Card className="lg:col-span-4 border-brand/20 card-hover">
-          <CardContent className="p-4">
-            <p className="text-[9px] uppercase tracking-[0.16em] text-brand font-bold">Review protocol</p>
-            <p className="text-sm font-bold mt-1">Log → tag → inspect → adjust.</p>
-            <p className="text-[11px] text-foreground-muted mt-1">A complete review needs setup, session, confluence, and the behavior that produced the result.</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Executive Journal Telemetry Strip */}
+      <Card className="border-border bg-surface shadow-xs card-hover">
+        <CardContent className="p-4 md:p-5">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 divide-y md:divide-y-0 md:divide-x divide-border/60">
+            <div className="px-3 py-1">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                <ScanLine className="w-3.5 h-3.5 text-foreground-subtle" /> Executions
+              </span>
+              <p className="font-mono text-xl font-bold text-foreground mt-1">
+                {metrics.closedTrades} <span className="text-xs font-normal text-foreground-muted">positions</span>
+              </p>
+            </div>
+
+            <div className="px-3 py-1">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-foreground-subtle" /> Win Rate
+              </span>
+              <p className="font-mono text-xl font-bold text-foreground mt-1">
+                {(metrics.winRate * 100).toFixed(1)}% <span className="text-xs font-normal text-foreground-muted">({metrics.wins}W/{metrics.losses}L)</span>
+              </p>
+            </div>
+
+            <div className="px-3 py-1">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-foreground-subtle" /> Net Realized
+              </span>
+              <p className={cn("font-mono text-xl font-bold mt-1", metrics.netPnl >= 0 ? "text-profit" : "text-loss")}>
+                {metrics.netPnl >= 0 ? "+" : ""}{formatCurrency(metrics.netPnl)}
+              </p>
+            </div>
+
+            <div className="px-3 py-1">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-foreground-subtle" /> Profit Factor
+              </span>
+              <p className="font-mono text-xl font-bold text-foreground mt-1">
+                {metrics.profitFactor === Infinity ? "∞" : metrics.profitFactor.toFixed(2)}
+              </p>
+            </div>
+
+            <div className="px-3 py-1">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-foreground-subtle flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-foreground-subtle" /> Run State
+              </span>
+              <p className={cn("font-mono text-xl font-bold mt-1", streak.type === "win" ? "text-profit" : streak.type === "loss" ? "text-loss" : "text-foreground")}>
+                {streak.count ? `${streak.count} ${streak.type === "win" ? "Wins 🔥" : "Losses"}` : "Neutral"}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {error && (
         <Card className="border-danger/30 bg-danger/5">
@@ -134,18 +175,12 @@ export default function JournalPage() {
       {formOpen && (
         <Modal
           open={formOpen}
-          onClose={() => {
-            setFormOpen(false);
-            setEditingTrade(null);
-          }}
+          onClose={() => setFormOpen(false)}
           title="Log New Trade"
         >
           <TradeForm
             onSaved={handleSaved}
-            onCancel={() => {
-              setFormOpen(false);
-              setEditingTrade(null);
-            }}
+            onCancel={() => setFormOpen(false)}
           />
         </Modal>
       )}
