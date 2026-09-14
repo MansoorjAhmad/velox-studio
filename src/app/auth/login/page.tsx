@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { Sparkles, ArrowRight, AlertCircle } from "lucide-react";
 
 import { BrandSplash } from "@/components/ui/brand-splash";
@@ -29,7 +28,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
-  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,7 +52,7 @@ export default function LoginPage() {
       });
       if (signInErr) throw signInErr;
       setAuthenticated(true);
-      router.push("/dashboard");
+      // Navigation is handled by BrandSplash via redirectTo prop
     } catch (err) {
       setError(authMessage(err));
       setLoading(false);
@@ -62,7 +60,7 @@ export default function LoginPage() {
   };
 
   if (authenticated) {
-    return <BrandSplash message="Access verified. Entering trading environment…" />;
+    return <BrandSplash message="Access verified. Entering trading environment…" redirectTo="/dashboard" />;
   }
 
   return (

@@ -1,15 +1,31 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { EASE } from "@/components/ui/motion";
 
 export interface BrandSplashProps {
   message?: string;
+  /** If provided, hard-navigates to this URL after the splash animation */
+  redirectTo?: string;
 }
 
-export function BrandSplash({ message = "Calibrating workspace and active accounts…" }: BrandSplashProps) {
+export function BrandSplash({
+  message = "Calibrating workspace and active accounts…",
+  redirectTo,
+}: BrandSplashProps) {
   const reduce = useReducedMotion();
+
+  useEffect(() => {
+    if (!redirectTo) return;
+    // Wait for the splash animation to play (1.4s shimmer cycle), then hard-navigate
+    // so the browser picks up the fresh session cookie and the dashboard loads correctly.
+    const timer = setTimeout(() => {
+      window.location.replace(redirectTo);
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, [redirectTo]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background select-none">

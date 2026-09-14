@@ -66,7 +66,7 @@ export default function SignUpPage() {
         });
         if (!signInErr) {
           setAuthenticated(true);
-          router.push("/dashboard");
+          // Navigation to /dashboard is handled by BrandSplash via redirectTo prop
         } else {
           router.push("/auth/login");
         }
@@ -81,7 +81,7 @@ export default function SignUpPage() {
   };
 
   if (authenticated) {
-    return <BrandSplash message="Account provisioned. Initializing trading workspace…" />;
+    return <BrandSplash message="Account provisioned. Initializing trading workspace…" redirectTo="/dashboard" />;
   }
 
   const perks = [
