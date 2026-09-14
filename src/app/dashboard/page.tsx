@@ -90,19 +90,18 @@ export default function DashboardPage() {
       setUsername(authData.user.email.split("@")[0]);
     }
 
-    const [result, accountsResult] = await Promise.all([getTrades(), getTradingAccounts()]);
-    const allAccs = accountsResult.data ?? [];
-    setAccounts(allAccs);
-
     const savedAccId = getActiveAccountId();
     setActiveAccId(savedAccId);
 
+    const [result, accountsResult] = await Promise.all([
+      getTrades(savedAccId),
+      getTradingAccounts(),
+    ]);
+    const allAccs = accountsResult.data ?? [];
+    setAccounts(allAccs);
+
     if (!result.error) {
-      let data = result.data ?? [];
-      if (savedAccId && savedAccId !== "all") {
-        data = data.filter((t) => (t as Trade & { account_id?: string }).account_id === savedAccId);
-      }
-      setTrades(data);
+      setTrades(result.data ?? []);
     }
 
     // Load routine data for Discipline Score

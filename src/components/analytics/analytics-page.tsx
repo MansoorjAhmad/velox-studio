@@ -132,14 +132,17 @@ export function AnalyticsPage() {
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 
   const load = useCallback(async () => {
-    const [tradesRes, accsRes] = await Promise.all([getTrades(), getTradingAccounts()]);
-    const allAccounts = accsRes.data ?? [];
     const savedAccId = getActiveAccountId();
+    const [tradesRes, accsRes] = await Promise.all([
+      getTrades(savedAccId),
+      getTradingAccounts(),
+    ]);
+    const allAccounts = accsRes.data ?? [];
     const loadedTrades = tradesRes.data ?? [];
 
     setAccounts(allAccounts);
     setActiveAccId(savedAccId);
-    setTrades(savedAccId && savedAccId !== "all" ? loadedTrades.filter((t) => t.account_id === savedAccId) : loadedTrades);
+    setTrades(loadedTrades);
     setInitialLoad(false);
   }, []);
 

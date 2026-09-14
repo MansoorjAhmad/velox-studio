@@ -25,9 +25,18 @@ export async function syncActiveAccountFromServer(): Promise<string> {
 }
 
 export async function setActiveAccountIdSynced(id: string): Promise<void> {
-  setActiveAccountIdLocal(id);
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-  await supabase.from("user_preferences").upsert({ user_id: user.id, active_account_id: id === "all" ? null : id });
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("user_preferences").upsert({
+        user_id: user.id,
+        active_account_id: id === "all" ? null : id,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to sync active account to Supabase:", err);
+  } finally {
+    setActiveAccountIdLocal(id);
+  }
 }

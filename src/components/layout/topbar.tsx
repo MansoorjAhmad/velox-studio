@@ -80,22 +80,29 @@ export function TopBar({ username, onMenuClick }: TopBarProps) {
       setAccounts(list);
 
       const saved = getActiveAccountId();
-      if (saved !== "all") {
+      if (saved === "all") {
+        setSelectedAccId("all");
+      } else if (list.some((a) => a.id === saved)) {
         setSelectedAccId(saved);
       } else if (list.length > 0) {
         const defaultAcc = list.find((a) => a.is_default) ?? list[0];
         setSelectedAccId(defaultAcc.id);
-        setActiveAccountIdSynced(defaultAcc.id);
+        void setActiveAccountIdSynced(defaultAcc.id);
+      } else {
+        setSelectedAccId("all");
       }
     };
     load();
 
     const handleAccountsChanged = () => load();
+    const handleActiveAccountChanged = () => {
+      setSelectedAccId(getActiveAccountId());
+    };
     window.addEventListener("trading_accounts_changed", handleAccountsChanged);
-    window.addEventListener("active_account_changed", handleAccountsChanged);
+    window.addEventListener("active_account_changed", handleActiveAccountChanged);
     return () => {
       window.removeEventListener("trading_accounts_changed", handleAccountsChanged);
-      window.removeEventListener("active_account_changed", handleAccountsChanged);
+      window.removeEventListener("active_account_changed", handleActiveAccountChanged);
     };
   }, []);
 

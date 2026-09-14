@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Circle, ImagePlus, Loader2, NotebookPen, Search, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { getTrades, updateTrade } from "@/lib/journal/actions";
+import { getActiveAccountId } from "@/lib/accounts/active-account";
 import { COMMON_EMOTIONS } from "@/lib/journal/types";
 import type { Trade } from "@/lib/journal/types";
 import { createClient } from "@/lib/supabase/client";
@@ -33,7 +34,24 @@ export default function JournalReviewPage() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { getTrades().then((result) => { const rows = result.data ?? []; setTrades(rows); setSelectedId(rows[0]?.id); setLoading(false); }); }, []);
+  const loadTrades = useCallback(async () => {
+    setLoading(true);
+    const activeAccId = getActiveAccountId();
+    const result = await getTrades(activeAccId);
+    const rows = result.data ?? [];
+    setTrades(rows);
+    setSelectedId((current) => (rows.some((r) => r.id === current) ? current : rows[0]?.id));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadTrades();
+    const handleAccChange = () => {
+      loadTrades();
+    };
+    window.addEventListener("active_account_changed", handleAccChange);
+    return () => window.removeEventListener("active_account_changed", handleAccChange);
+  }, [loadTrades]);
   const selected = trades.find((trade) => trade.id === selectedId);
   const visible = useMemo(() => trades.filter((trade) => (filter === "journaled" ? !!trade.journaled_at : filter === "pending" ? !trade.journaled_at : true) && trade.symbol.toLowerCase().includes(query.toLowerCase())), [trades, filter, query]);
   const counts = { all: trades.length, journaled: trades.filter((t) => t.journaled_at).length, pending: trades.filter((t) => !t.journaled_at).length };

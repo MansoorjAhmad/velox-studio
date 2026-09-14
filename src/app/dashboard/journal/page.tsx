@@ -27,17 +27,13 @@ export default function JournalPage() {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
-    const result = await getTrades();
+    const activeAccId = getActiveAccountId();
+    const result = await getTrades(activeAccId);
     if (result.error) {
       setError(result.error);
     } else {
-      let data = result.data ?? [];
-      const activeAccId = getActiveAccountId();
-      if (activeAccId && activeAccId !== "all") {
-        data = data.filter((t: any) => t.account_id === activeAccId);
-      }
-      setTrades(data);
+      setError(null);
+      setTrades(result.data ?? []);
     }
     setInitialLoad(false);
   }, []);

@@ -24,13 +24,9 @@ export function TraderIndexPage() {
   const [accountSwitching, setAccountSwitching] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await getTrades();
-    let data = res.data ?? [];
     const activeAccId = getActiveAccountId();
-    if (activeAccId && activeAccId !== "all") {
-      data = data.filter((t) => (t as Trade & { account_id?: string }).account_id === activeAccId);
-    }
-    setTrades(data);
+    const res = await getTrades(activeAccId);
+    setTrades(res.data ?? []);
     setInitialLoad(false);
   }, []);
 

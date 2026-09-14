@@ -13,7 +13,7 @@ import type { TradeInput } from "./types";
 // ────────────────────────────────────────────────────────────────
 //  GET — list current user's trades, newest first.
 // ────────────────────────────────────────────────────────────────
-export async function getTrades(): Promise<{
+export async function getTrades(accountId?: string | null): Promise<{
   data?: import("./types").Trade[];
   error?: string;
 }> {
@@ -23,11 +23,16 @@ export async function getTrades(): Promise<{
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("trades")
     .select("*")
-    .eq("user_id", user.id)
-    .order("entry_time", { ascending: false });
+    .eq("user_id", user.id);
+
+  if (accountId && accountId !== "all") {
+    query = query.eq("account_id", accountId);
+  }
+
+  const { data, error } = await query.order("entry_time", { ascending: false });
 
   if (error) return { error: error.message };
   return { data: (data ?? []) as import("./types").Trade[] };
