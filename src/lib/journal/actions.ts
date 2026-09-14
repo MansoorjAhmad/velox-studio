@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { TradeInput } from "./types";
 
@@ -17,6 +18,7 @@ export async function getTrades(accountId?: string | null): Promise<{
   data?: import("./types").Trade[];
   error?: string;
 }> {
+  noStore();
   const supabase = await createClient();
   const {
     data: { user },

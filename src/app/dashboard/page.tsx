@@ -36,7 +36,6 @@ import {
   Target,
   Sparkles,
   Flame,
-  BarChart3,
   Zap,
   ArrowUpRight,
   Shield,
@@ -71,7 +70,6 @@ import {
 
 export default function DashboardPage() {
   const supabase = createClient();
-  const [username, setUsername] = useState("");
   const [trades, setTrades] = useState<Trade[]>([]);
   const [accounts, setAccounts] = useState<TradingAccount[]>([]);
   const [activeAccId, setActiveAccId] = useState<string>("all");
@@ -85,27 +83,23 @@ export default function DashboardPage() {
   const [routineStreak, setRoutineStreak] = useState(0);
 
   const load = useCallback(async () => {
-    const { data: authData } = await supabase.auth.getUser();
-    if (authData.user?.email) {
-      setUsername(authData.user.email.split("@")[0]);
-    }
-
     const savedAccId = getActiveAccountId();
     setActiveAccId(savedAccId);
 
-    const [result, accountsResult] = await Promise.all([
+    // Single parallel fetch — all 5 data sources fire simultaneously
+    const [result, accountsResult, routineItemsRes, routineLogsRes] = await Promise.all([
       getTrades(savedAccId),
       getTradingAccounts(),
+      getRoutineItems(),
+      getRoutineLogs(),
     ]);
-    const allAccs = accountsResult.data ?? [];
-    setAccounts(allAccs);
+
+    setAccounts(accountsResult.data ?? []);
 
     if (!result.error) {
       setTrades(result.data ?? []);
     }
 
-    // Load routine data for Discipline Score
-    const [routineItemsRes, routineLogsRes] = await Promise.all([getRoutineItems(), getRoutineLogs()]);
     const rItems = routineItemsRes.data ?? [];
     const rLogs = routineLogsRes.data ?? [];
     setRoutineItemsCount(rItems.length);
@@ -335,36 +329,6 @@ export default function DashboardPage() {
   return (
     <PageTransition className="space-y-6 relative">
       {accountSwitching && <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[1px] flex items-center justify-center rounded-xl"><Loader2 className="w-5 h-5 animate-spin text-brand" /></div>}
-      {/* Executive Banner */}
-      <Card className="border-brand/20 glass overflow-hidden relative card-hover">
-        <div className="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-brand/5 blur-3xl pointer-events-none" />
-        <CardContent className="p-5 flex flex-col md:flex-row items-center justify-between gap-4 relative">
-          <div className="space-y-1.5 text-center md:text-left">
-            <div className="flex items-center gap-2 justify-center md:justify-start flex-wrap">
-              <Badge variant="brand" className="text-[10px] uppercase tracking-wider">Executive Command Center</Badge>
-              <Badge variant="outline" className="text-[10px]">{tradingConfig.topgPhase}</Badge>
-              <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border", currentSession.bg, currentSession.color)}>
-                {currentSession.emoji} {currentSession.name}
-              </span>
-            </div>
-            <p className="text-sm font-bold text-foreground">
-              Welcome back, <span className="text-brand">{username || "Trader"}</span> — {tradingConfig.phaseRiskPct}% risk per trade · {tradingConfig.dailyRiskLimitPct}% daily cap.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard/analytics">
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs font-bold">
-                <BarChart3 className="w-3.5 h-3.5" /> Analytics
-              </Button>
-            </Link>
-            <Link href="/dashboard/zenith">
-              <Button size="sm" className="bg-brand hover:bg-brand-hover text-brand-foreground font-bold shadow-lg shadow-brand/20 gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" /> Ask Zenith AI
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Account Filter Sync Banner */}
       {activeAccId !== "all" && (

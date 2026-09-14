@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export type RoutineCategory = "deen" | "life" | "trading" | "work" | "growth";
@@ -37,6 +38,7 @@ export async function getRoutineItems(): Promise<{
   data?: RoutineItem[];
   error?: string;
 }> {
+  noStore();
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Not authenticated" };
 
@@ -145,6 +147,7 @@ export async function getRoutineLogs(days = 60): Promise<{
   data?: RoutineLog[];
   error?: string;
 }> {
+  noStore();
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Not authenticated" };
 
