@@ -54,7 +54,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+      <Sidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} username={username} />
       <div className="md:ml-60 ml-0 flex flex-col min-h-screen">
         <TopBar username={username} onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1">
