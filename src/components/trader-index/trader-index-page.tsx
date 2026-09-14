@@ -23,19 +23,33 @@ export function TraderIndexPage() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [accountSwitching, setAccountSwitching] = useState(false);
 
-  const load = useCallback(async () => {
-    const activeAccId = getActiveAccountId();
-    const res = await getTrades(activeAccId);
-    setTrades(res.data ?? []);
-    setInitialLoad(false);
-  }, []);
-
   useEffect(() => {
-    load();
-    const h = async () => { setAccountSwitching(true); await load(); setAccountSwitching(false); };
+    let active = true;
+    async function init() {
+      const activeAccId = getActiveAccountId();
+      const res = await getTrades(activeAccId);
+      if (active) {
+        setTrades(res.data ?? []);
+        setInitialLoad(false);
+      }
+    }
+    init();
+
+    const h = async () => {
+      setAccountSwitching(true);
+      const activeAccId = getActiveAccountId();
+      const res = await getTrades(activeAccId);
+      if (active) {
+        setTrades(res.data ?? []);
+        setAccountSwitching(false);
+      }
+    };
     window.addEventListener("active_account_changed", h);
-    return () => window.removeEventListener("active_account_changed", h);
-  }, [load]);
+    return () => {
+      active = false;
+      window.removeEventListener("active_account_changed", h);
+    };
+  }, []);
 
   const result = useMemo(
     () => calculateTraderIndex(trades, getTradingConfig()),

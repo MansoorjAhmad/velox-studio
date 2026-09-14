@@ -61,8 +61,20 @@ export function TasksPage() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let active = true;
+    async function init() {
+      const res = await getTasks();
+      if (active) {
+        if (res.error) setError(res.error);
+        setTasks(res.data ?? []);
+        setLoading(false);
+      }
+    }
+    init();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const todoTasks = useMemo(() => tasks.filter((t) => t.status === "todo"), [tasks]);
   const inProgressTasks = useMemo(() => tasks.filter((t) => t.status === "in_progress"), [tasks]);
@@ -214,6 +226,7 @@ export function TasksPage() {
 
       {/* Create Modal */}
       <TaskFormModal
+        key="new"
         open={showForm}
         onClose={() => setShowForm(false)}
         onSaved={() => {
@@ -225,6 +238,7 @@ export function TasksPage() {
       {/* Edit Modal */}
       {editingTask && (
         <TaskFormModal
+          key={editingTask.id}
           open={!!editingTask}
           taskToEdit={editingTask}
           onClose={() => setEditingTask(null)}
@@ -427,15 +441,6 @@ function TaskFormModal({
   const [dueDate, setDueDate] = useState(taskToEdit?.due_date ?? "");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (taskToEdit) {
-      setTitle(taskToEdit.title);
-      setCategory(taskToEdit.category);
-      setPriority(taskToEdit.priority);
-      setDueDate(taskToEdit.due_date ?? "");
-    }
-  }, [taskToEdit]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -156,7 +156,11 @@ export default function DashboardPage() {
     () => calculateDisciplineScore(routineOverallPct, routineStreak),
     [routineOverallPct, routineStreak]
   );
-  const drawdown = calculateDrawdown(trades);
+  const activeBalance = useMemo(() => {
+    if (activeAccId !== "all") return accounts.find((account) => account.id === activeAccId)?.initial_balance ?? 10000;
+    return accounts.length > 0 ? accounts.reduce((sum, account) => sum + Number(account.initial_balance || 0), 0) : 10000;
+  }, [accounts, activeAccId]);
+  const drawdown = useMemo(() => calculateDrawdown(trades, activeBalance), [trades, activeBalance]);
   const streak = currentStreak(trades);
   const equityCurve = useMemo(() => buildEquityCurve(trades), [trades]);
   const systemQuality = useMemo(() => calculateSystemQuality(trades), [trades]);
@@ -233,12 +237,6 @@ export default function DashboardPage() {
   }, [trades]);
 
   const topStrategy = strategyBreakdown.length > 0 ? strategyBreakdown[0].setup : "—";
-
-  const activeBalance = useMemo(() => {
-    const activeAccId = getActiveAccountId();
-    if (activeAccId !== "all") return accounts.find((account) => account.id === activeAccId)?.initial_balance ?? 10000;
-    return accounts.length > 0 ? accounts.reduce((sum, account) => sum + Number(account.initial_balance || 0), 0) : 10000;
-  }, [accounts]);
 
   const dailyRiskUsed = useMemo(() => {
     const lossesToday = todayTrades

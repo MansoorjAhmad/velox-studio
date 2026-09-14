@@ -22,24 +22,23 @@ export function TraderIndexGauge({ breakdown }: TraderIndexGaugeProps) {
   const { overall, grade, riskConsistency, ruleAdherence, emotionalControl, revengeDiscipline } = breakdown;
 
   // Animate the arc fill.
-  const [displayedScore, setDisplayedScore] = useState(0);
+  const [animatedScore, setAnimatedScore] = useState(0);
   useEffect(() => {
-    if (reduce) {
-      setDisplayedScore(overall);
-      return;
-    }
+    if (reduce) return;
     const duration = 900;
     const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
-      setDisplayedScore(Math.round(eased * overall));
+      setAnimatedScore(Math.round(eased * overall));
       if (t < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [overall, reduce]);
+
+  const displayedScore = reduce ? overall : animatedScore;
 
   // Color based on score.
   const tier =

@@ -457,7 +457,7 @@ function OverviewTab({ metrics, stats, streaks, closedTrades, dayRows }: { metri
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
         <StatCard label="Net P&L" value={formatCurrency(stats.netPnl)} sub={`${metrics.closedTrades} trades`} tone={stats.netPnl >= 0 ? "profit" : "loss"} />
         <StatCard label="Avg Daily P&L" value={formatCurrency(stats.tradingDays ? stats.netPnl / stats.tradingDays : 0)} sub={`${stats.tradingDays} trading days`} tone={stats.netPnl >= 0 ? "profit" : "loss"} />
-        <StatCard label="Profit Factor" value={metrics.profitFactor.toFixed(2)} sub={`${formatCurrency(stats.totalProfit)} / ${formatCurrency(stats.totalLoss)}`} tone="brand" />
+        <StatCard label="Profit Factor" value={metrics.profitFactor === Infinity ? "∞" : metrics.profitFactor.toFixed(2)} sub={`${formatCurrency(stats.totalProfit)} / ${formatCurrency(stats.totalLoss)}`} tone="brand" />
         <StatCard label="Win Rate" value={pct(metrics.winRate * 100)} sub={`${stats.winners.length}W / ${stats.losers.length}L`} tone="brand" />
         <StatCard label="Trading Days" value={stats.tradingDays} sub={`${stats.winDays.length}W / ${stats.lossDays.length}L`} tone="brand" />
         <StatCard label="Total Trades" value={metrics.totalTrades} sub={`${stats.winners.length}W / ${stats.breakevens}B / ${stats.losers.length}L`} tone="neutral" />

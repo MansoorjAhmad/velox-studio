@@ -8,18 +8,23 @@ export interface ZenithData {
   error?: string;
 }
 
-export async function getZenithData(): Promise<ZenithData> {
+export async function getZenithData(accountId?: string | null): Promise<ZenithData> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { trades: [], error: "Not authenticated" };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("trades")
     .select("*")
-    .eq("user_id", user.id)
-    .order("entry_time", { ascending: false });
+    .eq("user_id", user.id);
+
+  if (accountId && accountId !== "all") {
+    query = query.eq("account_id", accountId);
+  }
+
+  const { data, error } = await query.order("entry_time", { ascending: false });
 
   if (error) return { trades: [], error: error.message };
   return { trades: (data ?? []) as Trade[] };

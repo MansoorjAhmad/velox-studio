@@ -16,7 +16,7 @@ import {
   getCustomStrategies,
   addCustomStrategySynced,
   deleteCustomStrategySynced,
-  useStrategiesListener,
+  subscribeStrategiesListener,
   DEFAULT_SETUPS,
 } from "@/lib/journal/strategies";
 import {
@@ -75,7 +75,7 @@ export function SettingsPage() {
   const [newStrategyInput, setNewStrategyInput] = useState("");
 
   useEffect(() => {
-    return useStrategiesListener(() => {
+    return subscribeStrategiesListener(() => {
       setStrategies(getCustomStrategies());
     });
   }, []);
@@ -245,7 +245,7 @@ export function SettingsPage() {
         <CardContent className="space-y-3">
           {accounts.length === 0 ? (
             <div className="py-6 text-center text-xs text-foreground-muted border border-dashed rounded-lg">
-              No trading accounts created yet. Click "Add Account" to create your first account.
+              No trading accounts created yet. Click &quot;Add Account&quot; to create your first account.
             </div>
           ) : (
             accounts.map((acc) => (
@@ -578,7 +578,7 @@ export function SettingsPage() {
               <Label>Account Type</Label>
               <select
                 value={accType}
-                onChange={(e) => setAccType(e.target.value as any)}
+                onChange={(e) => setAccType(e.target.value as TradingAccount["account_type"])}
                 className="w-full rounded-md border border-border bg-surface px-3 py-2 text-xs outline-none"
               >
                 <option value="prop">Prop Firm Challenge</option>

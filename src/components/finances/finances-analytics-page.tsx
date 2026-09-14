@@ -38,25 +38,27 @@ export function FinancesAnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<"30D" | "90D" | "ALL">("90D");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    const res = await getTransactions();
-    if (res.error) setError(res.error);
-    setTransactions(res.data ?? []);
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    load();
-  }, [load]);
+    let active = true;
+    async function fetchFiltered() {
+      setLoading(true);
+      setError(null);
+      const days = timeframe === "30D" ? 30 : timeframe === "90D" ? 90 : null;
+      const startDate = days ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) : undefined;
+      const res = await getTransactions({ startDate });
+      if (active) {
+        if (res.error) setError(res.error);
+        setTransactions(res.data ?? []);
+        setLoading(false);
+      }
+    }
+    fetchFiltered();
+    return () => {
+      active = false;
+    };
+  }, [timeframe]);
 
-  const filtered = useMemo(() => {
-    if (timeframe === "ALL") return transactions;
-    const days = timeframe === "30D" ? 30 : 90;
-    const cutoff = new Date(Date.now() - days * 86400000);
-    return transactions.filter((t) => new Date(t.date) >= cutoff);
-  }, [transactions, timeframe]);
+  const filtered = transactions;
 
   const stats = useMemo(() => {
     const incomeTx = filtered.filter((t) => t.type === "income");

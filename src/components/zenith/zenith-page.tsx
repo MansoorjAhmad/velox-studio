@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 import { getZenithData, type ZenithData } from "@/lib/zenith/actions";
+import { getActiveAccountId } from "@/lib/accounts/active-account";
 import {
   calculateMetrics,
   calculateDrawdown,
@@ -73,18 +74,38 @@ export function ZenithPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await getZenithData();
+    const activeAccId = getActiveAccountId();
+    const res = await getZenithData(activeAccId);
     if (res.error) setError(res.error);
     setData(res);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    load();
+    let active = true;
+    async function init() {
+      const activeAccId = getActiveAccountId();
+      const res = await getZenithData(activeAccId);
+      if (active) {
+        if (res.error) setError(res.error);
+        setData(res);
+        setLoading(false);
+      }
+    }
+    init();
+
+    const handleAccChange = () => {
+      load();
+    };
+    window.addEventListener("active_account_changed", handleAccChange);
+    return () => {
+      active = false;
+      window.removeEventListener("active_account_changed", handleAccChange);
+    };
   }, [load]);
 
   // Compute metrics from the raw trades
-  const trades = data?.trades ?? [];
+  const trades = useMemo(() => data?.trades ?? [], [data]);
   const metrics = useMemo(() => calculateMetrics(trades), [trades]);
   const drawdown = useMemo(() => calculateDrawdown(trades), [trades]);
   const streak = useMemo(() => currentStreak(trades), [trades]);

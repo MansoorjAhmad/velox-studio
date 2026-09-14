@@ -29,7 +29,7 @@ import {
 import { createTrade, updateTrade } from "@/lib/journal/actions";
 import { getTradingAccounts } from "@/lib/accounts/actions";
 import type { TradingAccount } from "@/lib/accounts/types";
-import { getCustomStrategies, useStrategiesListener } from "@/lib/journal/strategies";
+import { getCustomStrategies, subscribeStrategiesListener } from "@/lib/journal/strategies";
 import { useEffect } from "react";
 import { TrendingUp, TrendingDown, Loader2, Check, Plus, X, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -140,7 +140,7 @@ export function TradeForm({
   const [setupsList, setSetupsList] = useState<string[]>(getCustomStrategies());
 
   useEffect(() => {
-    return useStrategiesListener(() => {
+    return subscribeStrategiesListener(() => {
       setSetupsList(getCustomStrategies());
     });
   }, []);

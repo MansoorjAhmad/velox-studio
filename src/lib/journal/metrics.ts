@@ -55,11 +55,26 @@ export interface TradingScore {
 }
 
 export function calculateTradingScore(metrics: Metrics): TradingScore {
+  if (metrics.closedTrades === 0) {
+    return {
+      score: 0,
+      grade: "—",
+      winRateComponent: 0,
+      profitFactorComponent: 0,
+    };
+  }
+
   const winRateComponent = metrics.winRate * 100;
   const profitFactorComponent = normalizeProfitFactor(metrics.profitFactor);
-  const score = Math.round((winRateComponent + profitFactorComponent) / 2);
+  const rawScore = (winRateComponent + profitFactorComponent) / 2;
+
+  // Small-sample dampening: With fewer than 10 trades, single wins/losses skew the score.
+  // Regress toward 50 (neutral) based on sample size confidence.
+  const confidence = Math.min(1, metrics.closedTrades / 10);
+  const score = Math.round(50 * (1 - confidence) + rawScore * confidence);
 
   const grade =
+    metrics.closedTrades < 3 ? "Evaluating" :
     score >= 90 ? "A+ Apex" :
     score >= 75 ? "A Solid" :
     score >= 60 ? "B+ Building" :
@@ -118,7 +133,7 @@ export function calculateMetrics(trades: Trade[]): Metrics {
   // Average R-multiple.
   const rValues = closed
     .map((t) => t.r_multiple)
-    .filter((r): r is number => r != null);
+    .filter((r): r is number => r != null && isFinite(r));
   const avgRMultiple =
     rValues.length > 0
       ? rValues.reduce((s, r) => s + r, 0) / rValues.length
@@ -205,16 +220,17 @@ export function calculateDrawdown(
   const curve = buildEquityCurve(trades);
   if (curve.length === 0) return { maxDrawdown: 0, maxDrawdownPct: 0 };
 
-  // Seed peak with the starting balance so the % is meaningful from
-  // trade #1 (otherwise the first equity point is treated as the peak
-  // and a losing first trade would show a misleading ~100% drawdown).
-  let peak = Math.max(startingBalance, curve[0].equity);
+  const useBalance = startingBalance > 0;
+  const getEquity = (cumPnl: number) => (useBalance ? startingBalance + cumPnl : cumPnl);
+
+  let peak = useBalance ? startingBalance : Math.max(0, curve[0].equity);
   let maxDd = 0;
   let maxDdPct = 0;
 
   for (const point of curve) {
-    if (point.equity > peak) peak = point.equity;
-    const dd = peak - point.equity;
+    const eq = getEquity(point.equity);
+    if (eq > peak) peak = eq;
+    const dd = peak - eq;
     if (dd > maxDd) {
       maxDd = dd;
       maxDdPct = peak > 0 ? dd / peak : 0;
@@ -323,19 +339,23 @@ export interface DrawdownPoint {
   drawdownPct: number;
 }
 
-export function buildDrawdownCurve(trades: Trade[]): DrawdownPoint[] {
+export function buildDrawdownCurve(trades: Trade[], startingBalance = 0): DrawdownPoint[] {
   const curve = buildEquityCurve(trades);
   if (curve.length === 0) return [];
 
-  let peak = curve[0].equity;
+  const useBalance = startingBalance > 0;
+  const getEquity = (cumPnl: number) => (useBalance ? startingBalance + cumPnl : cumPnl);
+
+  let peak = useBalance ? startingBalance : Math.max(0, curve[0].equity);
   return curve.map((p) => {
-    if (p.equity > peak) peak = p.equity;
-    const dd = peak - p.equity;
+    const eq = getEquity(p.equity);
+    if (eq > peak) peak = eq;
+    const dd = peak - eq;
     return {
       date: p.date,
-      equity: p.equity,
-      drawdown: -dd,
-      drawdownPct: peak > 0 ? -(dd / peak) * 100 : 0,
+      equity: eq,
+      drawdown: dd === 0 ? 0 : -dd,
+      drawdownPct: peak > 0 && dd > 0 ? -(dd / peak) * 100 : 0,
     };
   });
 }
@@ -448,10 +468,12 @@ export function currentStreak(trades: Trade[]): {
   if (closed.length === 0) return { type: "none", count: 0 };
 
   const last = closed[0];
-  const type: "win" | "loss" = last.pnl >= 0 ? "win" : "loss";
+  if (last.pnl === 0) return { type: "none", count: 0 };
+
+  const type: "win" | "loss" = last.pnl > 0 ? "win" : "loss";
   let count = 0;
   for (const t of closed) {
-    if (type === "win" && t.pnl >= 0) count++;
+    if (type === "win" && t.pnl > 0) count++;
     else if (type === "loss" && t.pnl < 0) count++;
     else break;
   }
@@ -560,7 +582,10 @@ export function calculateDrawdownDetails(
     };
   }
 
-  let peak = Math.max(startingBalance, curve[0].equity);
+  const useBalance = startingBalance > 0;
+  const getEquity = (cumPnl: number) => (useBalance ? startingBalance + cumPnl : cumPnl);
+
+  let peak = useBalance ? startingBalance : Math.max(0, curve[0].equity);
   let peakIndex = -1;
   let peakDate = curve[0].date;
 
@@ -576,12 +601,13 @@ export function calculateDrawdownDetails(
   let peakIndexAtMaxDrawdown = -1;
 
   for (let i = 0; i < curve.length; i++) {
-    if (curve[i].equity > peak) {
-      peak = curve[i].equity;
+    const eq = getEquity(curve[i].equity);
+    if (eq > peak) {
+      peak = eq;
       peakIndex = i;
       peakDate = curve[i].date;
     }
-    const dd = peak - curve[i].equity;
+    const dd = peak - eq;
     if (dd > maxDd) {
       maxDd = dd;
       maxDdPct = peak > 0 ? dd / peak : 0;
@@ -615,7 +641,7 @@ export function calculateDrawdownDetails(
   let recoveryIdx = -1;
   if (troughIndex >= 0) {
     for (let i = troughIndex + 1; i < curve.length; i++) {
-      if (curve[i].equity >= peakAtMaxDrawdown) {
+      if (getEquity(curve[i].equity) >= peakAtMaxDrawdown) {
         recoveryIdx = i;
         break;
       }

@@ -128,7 +128,7 @@ export function generateCandles(opts: GenerateOptions): Candle[] {
   const candles: Candle[] = [];
   let price = spec.basePrice;
   let regime = nextRegime(rng, "range");
-  let startTime = opts.startTime ?? Date.now() - count * interval;
+  const startTime = opts.startTime ?? Date.now() - count * interval;
 
   for (let i = 0; i < count; i++) {
     // Cycle regimes.
@@ -148,7 +148,7 @@ export function generateCandles(opts: GenerateOptions): Candle[] {
 
     const open = price;
     const step = (regime.drift + z * vol) * price;
-    let close = open + step;
+    const close = open + step;
 
     // Wick generation — high/low extend beyond the body.
     const wickRange = Math.abs(step) + vol * price * (0.5 + rng());

@@ -53,10 +53,7 @@ export function AnimatedCounter({
   const started = useRef(false);
 
   useEffect(() => {
-    if (reduce) {
-      setDisplay(formatValue(value));
-      return;
-    }
+    if (reduce) return;
     motionValue.set(value);
   }, [value, reduce, motionValue]);
 

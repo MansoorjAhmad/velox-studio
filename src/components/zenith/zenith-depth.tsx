@@ -166,20 +166,20 @@ function PatternCard({ pattern }: { pattern: DetectedPattern }) {
 // ════════════════════════════════════════════════════════════════
 
 function WeeklyReviewPanel({ trades }: { trades: Trade[] }) {
-  const [review, setReview] = useState<string | null>(null);
+  const weekStart = currentWeekStart();
+  const [review, setReview] = useState<string | null>(() => {
+    const c = getCachedReview();
+    return c && c.weekStart === weekStart ? c.review : null;
+  });
   const [loading, setLoading] = useState(false);
-  const [cached, setCached] = useState<CachedReview | null>(null);
+  const [cached, setCached] = useState<CachedReview | null>(() => {
+    const c = getCachedReview();
+    return c && c.weekStart === weekStart ? c : null;
+  });
   const [error, setError] = useState<string | null>(null);
 
-  const weekStart = currentWeekStart();
-
-  // Load cached review on mount.
+  // Sync cached review from server on mount
   useEffect(() => {
-    const c = getCachedReview();
-    if (c && c.weekStart === weekStart) {
-      setCached(c);
-      setReview(c.review);
-    }
     syncCachedReviewFromServer().then((synced) => {
       if (synced?.weekStart === weekStart) {
         setCached(synced);
@@ -277,7 +277,7 @@ function WeeklyReviewPanel({ trades }: { trades: Trade[] }) {
           </div>
         ) : (
           <p className="text-sm text-foreground-muted">
-            Click <span className="text-foreground font-medium">Generate Review</span> to let Zenith analyze this week's trades and produce a structured performance review.
+            Click <span className="text-foreground font-medium">Generate Review</span> to let Zenith analyze this week&apos;s trades and produce a structured performance review.
           </p>
         )}
       </CardContent>

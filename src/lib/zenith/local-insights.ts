@@ -47,7 +47,13 @@ export function generateLocalInsights(
   }
 
   // Profit factor
-  if (metrics.profitFactor >= 2) {
+  if (metrics.profitFactor === Infinity && metrics.grossProfit > 0) {
+    insights.push({
+      type: "opportunity",
+      title: "Zero Loss Record",
+      description: "You have recorded no losing trades yet. Profit factor will establish as more trades are logged.",
+    });
+  } else if (isFinite(metrics.profitFactor) && metrics.profitFactor >= 2) {
     insights.push({
       type: "opportunity",
       title: "Excellent Profit Factor",

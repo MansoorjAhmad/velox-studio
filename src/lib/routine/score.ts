@@ -21,6 +21,9 @@ export function calculateDisciplineScore(
   overallPct: number,
   streak: number,
 ): DisciplineScore {
+  if (overallPct === 0 && streak === 0) {
+    return { score: 0, grade: "—", completionComponent: 0, streakComponent: 0 };
+  }
   const completionComponent = overallPct;
   const streakComponent = normalizeStreak(streak);
   const score = Math.round(completionComponent * 0.7 + streakComponent * 0.3);

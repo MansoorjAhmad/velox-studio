@@ -16,18 +16,38 @@ async function requireUser() {
 //  TRANSACTIONS
 // ════════════════════════════════════════════════════════════════
 
-export async function getTransactions(): Promise<{
+export interface GetTransactionsOptions {
+  startDate?: string;
+  limit?: number;
+  type?: "income" | "expense";
+}
+
+export async function getTransactions(options?: GetTransactionsOptions): Promise<{
   data?: import("./types").Transaction[];
   error?: string;
 }> {
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("transactions")
     .select("*")
-    .eq("user_id", user.id)
-    .order("date", { ascending: false });
+    .eq("user_id", user.id);
+
+  if (options?.startDate) {
+    query = query.gte("date", options.startDate);
+  }
+  if (options?.type) {
+    query = query.eq("type", options.type);
+  }
+
+  query = query.order("date", { ascending: false });
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) return { error: error.message };
   return { data: (data ?? []) as import("./types").Transaction[] };
@@ -174,5 +194,5 @@ export async function updateDebtPayment(
   debtId: string,
   paidAmount: number,
 ): Promise<{ error?: string }> {
-  return updateDebt(debtId, { paid_amount: paidAmount } as any);
+  return updateDebt(debtId, { paid_amount: paidAmount });
 }

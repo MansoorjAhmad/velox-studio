@@ -57,7 +57,7 @@ export function deleteCustomStrategy(name: string): string[] {
   return updated;
 }
 
-export function useStrategiesListener(callback: () => void) {
+export function subscribeStrategiesListener(callback: () => void) {
   if (typeof window === "undefined") return () => {};
   const handler = () => callback();
   window.addEventListener("velox_strategies_changed", handler);
@@ -67,6 +67,9 @@ export function useStrategiesListener(callback: () => void) {
     window.removeEventListener("storage", handler);
   };
 }
+
+/** @deprecated Use subscribeStrategiesListener instead to avoid hook naming collisions */
+export const useStrategiesListener = subscribeStrategiesListener;
 
 export async function syncStrategiesFromServer(): Promise<string[]> {
   const supabase = createClient();
