@@ -29,9 +29,9 @@ export default function DashboardLayout({
   useEffect(() => {
     const check = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
         router.push("/auth/login");
       } else {
         await Promise.all([
@@ -39,8 +39,8 @@ export default function DashboardLayout({
           syncStrategiesFromServer(),
           syncActiveAccountFromServer(),
         ]);
-        if (session.user?.email) {
-          setUsername(session.user.email.split("@")[0]);
+        if (user.email) {
+          setUsername(user.email.split("@")[0]);
         }
         setLoading(false);
       }

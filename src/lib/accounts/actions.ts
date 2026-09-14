@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { TradingAccount, TradingAccountInput } from "./types";
 
@@ -16,6 +17,7 @@ export async function getTradingAccounts(): Promise<{
   data?: TradingAccount[];
   error?: string;
 }> {
+  noStore();
   const { supabase, user } = await requireUser();
   if (!user) return { error: "Not authenticated" };
 

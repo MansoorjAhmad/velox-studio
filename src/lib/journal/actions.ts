@@ -76,6 +76,8 @@ export async function createTrade(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/journal");
+  revalidatePath("/dashboard/journal-review");
+  revalidatePath("/dashboard");
   return { id: data.id };
 }
 
@@ -101,6 +103,8 @@ export async function updateTrade(
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/journal");
+  revalidatePath("/dashboard/journal-review");
+  revalidatePath("/dashboard");
   return {};
 }
 
@@ -123,5 +127,8 @@ export async function deleteTrade(id: string): Promise<{ error?: string }> {
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/journal");
+  revalidatePath("/dashboard/journal-review");
+  revalidatePath("/dashboard");
   return {};
 }
+

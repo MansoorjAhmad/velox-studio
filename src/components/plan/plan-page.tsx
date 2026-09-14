@@ -120,18 +120,27 @@ export function PlanPage() {
   const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem(PLAN_STORAGE_KEY);
-    if (saved) {
-      try {
-        setItems(JSON.parse(saved));
-      } catch {
-        setItems(DEFAULT_PLAN_ITEMS);
+    const loadPlan = async () => {
+      // 1. Try Supabase first (source of truth)
+      const synced = await syncMasterPlanFromServer();
+      if (synced) {
+        setItems(synced);
+        return;
       }
-    } else {
+      // 2. Fall back to localStorage cache
+      const saved = localStorage.getItem(PLAN_STORAGE_KEY);
+      if (saved) {
+        try {
+          setItems(JSON.parse(saved));
+          return;
+        } catch {
+          // corrupted cache — fall through to defaults
+        }
+      }
+      // 3. Fresh device, no data anywhere — use defaults (don't save them yet)
       setItems(DEFAULT_PLAN_ITEMS);
-      localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(DEFAULT_PLAN_ITEMS));
-    }
-    syncMasterPlanFromServer().then((synced) => { if (synced) setItems(synced); });
+    };
+    loadPlan();
   }, []);
 
   const saveItems = (updated: PlanItem[]) => {
