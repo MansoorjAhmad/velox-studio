@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgentStep } from "./agent-tools";
+import { createClient } from "@/lib/supabase/client";
 
 export interface ParsedTrade {
   symbol: string;
@@ -47,9 +48,21 @@ export async function chatWithAgent(
   const mode = options?.mode ?? "agent";
 
   try {
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (session?.access_token) {
+      headers["Authorization"] = `Bearer ${session.access_token}`;
+    }
+
     const res = await fetch("/api/zenith", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         mode,
         userMessage: message,

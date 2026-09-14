@@ -27,6 +27,9 @@ import {
   MessageSquare,
   Wrench,
   CheckCircle2,
+  TrendingUp,
+  AlertTriangle,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,6 +49,7 @@ interface Message {
   steps?: AgentStep[];
   action?: AgentAction;
   actionNote?: string;
+  timestamp?: string;
 }
 
 const welcomeMessage = (mode: "agent" | "chat"): Message => ({
@@ -53,16 +57,16 @@ const welcomeMessage = (mode: "agent" | "chat"): Message => ({
   role: "agent",
   text:
     mode === "agent"
-      ? "Institutional Agent online. I can execute live queries on your trades, audit performance metrics, calculate lot sizing, or log trades and tasks directly. What would you like to inspect?"
-      : "Trading Copilot online. Ask me anything about risk management, ICT/SMC concepts, psychology, or position sizing formulas. How can I help?",
+      ? "Autonomous Trading Agent online.\n\nI can inspect your live journal, audit setups, verify discipline rules, compute position sizing, or log trades and tasks directly. What would you like to inspect?"
+      : "Trading Copilot online.\n\nAsk me anything about risk management, ICT concepts, session mechanics, or lot sizing formulas. How can I help today?",
+  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
 });
 
-const QUICK_CHIPS = [
-  "Audit my win rate on XAUUSD",
-  "What is my biggest loss this week?",
-  "Calculate lot size for $300 risk on Gold (20 pips SL)",
-  "How is my Trader Index score?",
-  "Create task: Review NY session trades",
+const QUICK_PROMPTS = [
+  { icon: TrendingUp, label: "Audit my win rate on XAUUSD", text: "Audit my win rate and P&L on XAUUSD" },
+  { icon: AlertTriangle, label: "What is my biggest loss this week?", text: "What is my biggest loss this week?" },
+  { icon: Calculator, label: "Calculate Gold lot size", text: "Calculate lot size for $300 risk on Gold with 20 pips stop loss" },
+  { icon: Sparkles, label: "Check my Trader Index", text: "What is my current Trader Index score and discipline breakdown?" },
 ];
 
 function timeAgo(value: string) {
@@ -119,7 +123,7 @@ export function ZenithAgent() {
 
   useEffect(() => {
     if (open && !minimized && view === "chat") {
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setTimeout(() => inputRef.current?.focus(), 120);
     }
   }, [open, minimized, view]);
 
@@ -145,7 +149,7 @@ export function ZenithAgent() {
   };
 
   const handleActionError = (id: string, error: string) => {
-    updateMessage(id, { action: undefined, actionNote: `Couldn't save: ${error}` });
+    updateMessage(id, { action: undefined, actionNote: `Failed: ${error}` });
   };
 
   const handleDismissAction = (id: string) => {
@@ -179,12 +183,12 @@ export function ZenithAgent() {
       mistakes: null,
       partials: null,
       confluences: null,
-      notes: "Logged by Zenith Agent",
+      notes: "Logged via Zenith Agent",
       status: data.exit_price != null ? "closed" : "open",
       account_id: getActiveAccountId() === "all" ? null : getActiveAccountId(),
     });
     if (result.error) handleActionError(id, result.error);
-    else handleActionConfirmed(id, "Trade logged successfully.");
+    else handleActionConfirmed(id, "Trade logged to journal.");
   };
 
   const handleConfirmTask = async (id: string, data: ParsedTask) => {
@@ -195,7 +199,7 @@ export function ZenithAgent() {
       due_date: data.due_date,
     });
     if (result.error) handleActionError(id, result.error);
-    else handleActionConfirmed(id, "Task created successfully.");
+    else handleActionConfirmed(id, "Task created.");
   };
 
   const handleSend = useCallback(
@@ -205,14 +209,25 @@ export function ZenithAgent() {
       setInput("");
       setSending(true);
 
-      const userMsg: Message = { id: crypto.randomUUID(), role: "user", text };
+      const userMsg: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
+        text,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
       setMessages((current) => [...current, userMsg]);
       void saveMessageToConversation(conversationId, "user", text);
 
       const loadingId = crypto.randomUUID();
       setMessages((current) => [
         ...current,
-        { id: loadingId, role: "agent", text: "", loading: true },
+        {
+          id: loadingId,
+          role: "agent",
+          text: "",
+          loading: true,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
       ]);
 
       const history = messages
@@ -259,14 +274,15 @@ export function ZenithAgent() {
     }
   };
 
+  // Minimized floating launcher button
   if (!open) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 right-4 z-50 w-14 h-14 rounded-full bg-brand flex items-center justify-center shadow-lg shadow-brand/25 hover:scale-105 active:scale-95 transition-all md:bottom-6 md:right-6 group"
-        title="Zenith Agent"
+        className="fixed bottom-20 right-4 z-50 w-13 h-13 rounded-full bg-brand flex items-center justify-center shadow-xl shadow-brand/30 hover:scale-105 active:scale-95 transition-all md:bottom-6 md:right-6 group border border-white/10"
+        title="Open Zenith Agent"
       >
-        <Sparkles className="w-6 h-6 text-white group-hover:rotate-12 transition-transform" />
+        <Sparkles className="w-5 h-5 text-white group-hover:rotate-12 transition-transform" />
       </button>
     );
   }
@@ -276,31 +292,32 @@ export function ZenithAgent() {
       className={cn(
         "fixed z-50 transition-all duration-300 ease-out",
         minimized
-          ? "bottom-20 right-4 md:bottom-6 md:right-6 w-14 h-14"
+          ? "bottom-20 right-4 md:bottom-6 md:right-6 w-13 h-13"
           : isExpanded
-            ? "bottom-4 right-4 md:bottom-6 md:right-6 w-[calc(100vw-2rem)] max-w-[740px] h-[min(700px,calc(100svh-4rem))]"
-            : "bottom-20 right-4 md:bottom-6 md:right-6 w-[calc(100vw-2rem)] max-w-[420px] h-[min(560px,calc(100svh-7rem))]",
+            ? "bottom-4 right-4 md:bottom-6 md:right-6 w-[min(820px,calc(100vw-2rem))] h-[min(740px,calc(100svh-4rem))]"
+            : "bottom-20 right-4 md:bottom-6 md:right-6 w-[min(440px,calc(100vw-1.5rem))] h-[min(580px,calc(100svh-6rem))]",
       )}
     >
       {minimized ? (
         <button
           onClick={() => setMinimized(false)}
-          className="w-14 h-14 rounded-full bg-brand flex items-center justify-center shadow-lg hover:scale-105 transition-all"
+          className="w-13 h-13 rounded-full bg-brand flex items-center justify-center shadow-xl hover:scale-105 transition-all border border-white/10"
         >
-          <Sparkles className="w-6 h-6 text-white" />
+          <Sparkles className="w-5 h-5 text-white" />
         </button>
       ) : (
-        <div className="flex flex-col h-full rounded-2xl border border-border/80 bg-surface/95 backdrop-blur-xl shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/80 bg-surface-2/40">
+        <div className="flex flex-col h-full rounded-2xl border border-border/80 bg-surface/98 backdrop-blur-2xl shadow-2xl overflow-hidden">
+          {/* Header Row 1: Brand & Window Controls */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-surface-2/60">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-brand/15 border border-brand/30 flex items-center justify-center">
+              <div className="relative w-8 h-8 rounded-lg bg-brand/15 border border-brand/30 flex items-center justify-center">
                 <Sparkles className="w-4 h-4 text-brand" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-profit ring-2 ring-surface" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold tracking-tight">Zenith Agent</p>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-brand/15 text-brand border border-brand/20">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-xs font-bold text-foreground tracking-tight">Zenith Agent</p>
+                  <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-brand/15 text-brand border border-brand/20">
                     2.0
                   </span>
                 </div>
@@ -308,81 +325,82 @@ export function ZenithAgent() {
               </div>
             </div>
 
-            {/* Mode toggle and actions */}
-            <div className="flex items-center gap-1.5">
-              {/* Mode switch */}
-              <div className="flex items-center p-0.5 rounded-lg bg-surface-3/60 border border-border/60 text-xs">
-                <button
-                  onClick={() => setMode("agent")}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded-md transition-all text-[11px] font-medium",
-                    mode === "agent"
-                      ? "bg-brand text-white shadow-xs font-semibold"
-                      : "text-foreground-subtle hover:text-foreground",
-                  )}
-                  title="Agent Mode: multi-step reasoning with live database tool execution"
-                >
-                  <Zap className="w-3 h-3" />
-                  Agent
-                </button>
-                <button
-                  onClick={() => setMode("chat")}
-                  className={cn(
-                    "flex items-center gap-1 px-2 py-1 rounded-md transition-all text-[11px] font-medium",
-                    mode === "chat"
-                      ? "bg-brand text-white shadow-xs font-semibold"
-                      : "text-foreground-subtle hover:text-foreground",
-                  )}
-                  title="Chat Mode: fast conversational trading questions and coaching"
-                >
-                  <MessageSquare className="w-3 h-3" />
-                  Chat
-                </button>
-              </div>
-
-              {/* Utility controls */}
+            {/* Window control buttons */}
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => {
                   void refreshConversations();
                   setView(view === "chat" ? "history" : "chat");
                 }}
-                className="p-1.5 rounded-md hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
-                title="Chat history"
+                className="p-1.5 rounded-lg hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
+                title="Conversation history"
               >
-                <History className="w-4 h-4" />
+                <History className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => void startNewChat()}
-                className="p-1.5 rounded-md hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
+                className="p-1.5 rounded-lg hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
                 title="New chat"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="p-1.5 rounded-md hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors hidden sm:inline-flex"
-                title={isExpanded ? "Collapse view" : "Expand terminal"}
+                className="p-1.5 rounded-lg hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors hidden sm:inline-flex"
+                title={isExpanded ? "Collapse" : "Expand window"}
               >
-                {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                {isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
               <button
                 onClick={() => setMinimized(true)}
-                className="p-1.5 rounded-md hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
+                className="p-1.5 rounded-lg hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
                 title="Minimize"
               >
-                <Minimize2 className="w-4 h-4" />
+                <Minimize2 className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1.5 rounded-md hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
+                className="p-1.5 rounded-lg hover:bg-surface-3 text-foreground-subtle hover:text-foreground transition-colors"
                 title="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Body */}
+          {/* Header Row 2: Clean Segmented Mode Control */}
+          <div className="px-4 py-2 border-b border-border/50 bg-surface/80">
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-2/80 border border-border/60">
+              <button
+                onClick={() => setMode("agent")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all",
+                  mode === "agent"
+                    ? "bg-brand text-white shadow-xs"
+                    : "text-foreground-subtle hover:text-foreground",
+                )}
+                title="Autonomous Agent: executes real queries on trades, metrics, and risk"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>Agent Mode</span>
+              </button>
+              <button
+                onClick={() => setMode("chat")}
+                className={cn(
+                  "flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all",
+                  mode === "chat"
+                    ? "bg-brand text-white shadow-xs"
+                    : "text-foreground-subtle hover:text-foreground",
+                )}
+                title="Fast Copilot: trading advice, psychology, and risk calculations"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Chat Mode</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Main Body */}
           {view === "history" ? (
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               <Button size="sm" className="w-full mb-3" onClick={() => void startNewChat()}>
@@ -396,10 +414,10 @@ export function ZenithAgent() {
                 conversations.map((conversation) => (
                   <div
                     key={conversation.id}
-                    className="flex items-center gap-1 rounded-lg border border-border/40 hover:bg-surface-2 transition-colors"
+                    className="flex items-center gap-1 rounded-xl border border-border/50 hover:bg-surface-2/80 transition-colors p-1"
                   >
                     <button
-                      className="flex-1 min-w-0 text-left px-3 py-2.5"
+                      className="flex-1 min-w-0 text-left px-3 py-2"
                       onClick={() => void openConversation(conversation.id)}
                     >
                       <p className="truncate text-xs font-semibold text-foreground">
@@ -423,64 +441,64 @@ export function ZenithAgent() {
             </div>
           ) : (
             <>
-              {/* Messages area */}
-              <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+              {/* Messages Area */}
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3.5">
                 {messages.map((message) => (
                   <div
                     key={message.id}
                     className={cn(
-                      "flex flex-col space-y-1.5",
+                      "flex flex-col space-y-1",
                       message.role === "user" ? "items-end" : "items-start",
                     )}
                   >
-                    {/* Tool steps reasoning badges (if agent executed tools) */}
+                    {/* Tool Execution Reasoning Badges */}
                     {message.role === "agent" && message.steps && message.steps.length > 0 && (
                       <div className="space-y-1 mb-1 max-w-[95%]">
-                        {message.steps.map((step, sIdx) => (
+                        {message.steps.map((step, idx) => (
                           <div
-                            key={sIdx}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand/10 border border-brand/20 text-[11px] text-foreground"
+                            key={idx}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20 text-[11px] text-foreground shadow-xs"
                           >
                             <Wrench className="w-3 h-3 text-brand shrink-0" />
-                            <span className="font-mono text-brand font-semibold">{step.tool}</span>
+                            <span className="font-mono text-brand font-bold">{step.tool}</span>
                             <span className="text-foreground-subtle truncate">→ {step.summary}</span>
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {/* Chat bubble */}
+                    {/* Chat Bubble */}
                     <div
                       className={cn(
-                        "max-w-[90%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-xs",
+                        "max-w-[88%] rounded-2xl px-4 py-2.5 text-xs sm:text-[13px] leading-relaxed shadow-xs",
                         message.role === "user"
-                          ? "bg-brand text-white rounded-br-xs"
-                          : "bg-surface-2 border border-border/60 text-foreground rounded-bl-xs",
+                          ? "bg-brand text-white rounded-br-xs font-medium"
+                          : "bg-surface-2 border border-border/70 text-foreground rounded-bl-xs",
                       )}
                     >
                       {message.loading ? (
-                        <div className="flex items-center gap-2 py-0.5">
+                        <div className="flex items-center gap-2.5 py-1">
                           <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />
                           <span className="text-foreground-subtle text-xs">
-                            {mode === "agent" ? "Executing tools & reasoning…" : "Thinking…"}
+                            {mode === "agent" ? "Executing tools & synthesizing…" : "Thinking…"}
                           </span>
                         </div>
                       ) : (
                         <>
                           <div className="whitespace-pre-wrap">{message.text}</div>
 
-                          {/* Trade action confirmation */}
+                          {/* Trade Action Confirmation Card */}
                           {message.action?.type === "trade" && (
-                            <div className="mt-3 border border-border/80 rounded-xl p-3 bg-surface-3/40 space-y-2 text-foreground">
+                            <div className="mt-2.5 border border-border/80 rounded-xl p-3 bg-surface-3/50 space-y-2 text-foreground">
                               <div className="flex items-center justify-between">
-                                <p className="text-xs font-semibold text-brand flex items-center gap-1">
+                                <p className="text-xs font-bold text-brand flex items-center gap-1">
                                   <CheckCircle2 className="w-3.5 h-3.5" /> Log Trade
                                 </p>
-                                <span className="text-[10px] text-foreground-subtle font-mono">
+                                <span className="text-[10px] font-mono font-bold uppercase text-foreground-subtle">
                                   {message.action.data.direction}
                                 </span>
                               </div>
-                              <div className="text-[12px] font-mono grid grid-cols-2 gap-1 py-1">
+                              <div className="text-[11px] font-mono grid grid-cols-2 gap-1 py-0.5">
                                 <div>
                                   <span className="text-foreground-subtle">Symbol:</span>{" "}
                                   {message.action.data.symbol}
@@ -493,7 +511,7 @@ export function ZenithAgent() {
                                 )}
                                 {message.action.data.pnl != null && (
                                   <div>
-                                    <span className="text-foreground-subtle">P&L:</span>{" "}
+                                    <span className="text-foreground-subtle">P&amp;L:</span>{" "}
                                     ${message.action.data.pnl}
                                   </div>
                                 )}
@@ -507,6 +525,7 @@ export function ZenithAgent() {
                               <div className="flex gap-2 pt-1">
                                 <Button
                                   size="sm"
+                                  className="h-7 text-xs"
                                   onClick={() =>
                                     void handleConfirmTrade(
                                       message.id,
@@ -519,6 +538,7 @@ export function ZenithAgent() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  className="h-7 text-xs"
                                   onClick={() => handleDismissAction(message.id)}
                                 >
                                   Dismiss
@@ -527,22 +547,21 @@ export function ZenithAgent() {
                             </div>
                           )}
 
-                          {/* Task action confirmation */}
+                          {/* Task Action Confirmation Card */}
                           {message.action?.type === "task" && (
-                            <div className="mt-3 border border-border/80 rounded-xl p-3 bg-surface-3/40 space-y-2 text-foreground">
-                              <p className="text-xs font-semibold text-brand flex items-center gap-1">
+                            <div className="mt-2.5 border border-border/80 rounded-xl p-3 bg-surface-3/50 space-y-1.5 text-foreground">
+                              <p className="text-xs font-bold text-brand flex items-center gap-1">
                                 <CheckCircle2 className="w-3.5 h-3.5" /> Create Task
                               </p>
-                              <div className="text-[12px]">
-                                <strong>{message.action.data.title}</strong>
-                                <div className="text-[11px] text-foreground-subtle mt-0.5">
-                                  Priority: {message.action.data.priority} · Category:{" "}
-                                  {message.action.data.category}
-                                </div>
+                              <div className="text-xs font-medium">{message.action.data.title}</div>
+                              <div className="text-[10px] text-foreground-subtle">
+                                Priority: {message.action.data.priority} · Category:{" "}
+                                {message.action.data.category}
                               </div>
                               <div className="flex gap-2 pt-1">
                                 <Button
                                   size="sm"
+                                  className="h-7 text-xs"
                                   onClick={() =>
                                     void handleConfirmTask(
                                       message.id,
@@ -555,6 +574,7 @@ export function ZenithAgent() {
                                 <Button
                                   size="sm"
                                   variant="ghost"
+                                  className="h-7 text-xs"
                                   onClick={() => handleDismissAction(message.id)}
                                 >
                                   Dismiss
@@ -564,68 +584,77 @@ export function ZenithAgent() {
                           )}
 
                           {message.actionNote && (
-                            <p className="mt-2 text-xs text-brand font-medium">
+                            <p className="mt-1.5 text-[11px] text-brand font-semibold">
                               ✓ {message.actionNote}
                             </p>
                           )}
                         </>
                       )}
                     </div>
+                    {message.timestamp && (
+                      <span className="text-[9px] text-foreground-subtle px-1">
+                        {message.timestamp}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
 
-              {/* Quick prompt chips (shown when 1 message or empty) */}
+              {/* Quick Prompts Carousel (when 1 message or empty) */}
               {messages.length <= 1 && (
-                <div className="px-4 pb-2">
-                  <p className="text-[10px] font-semibold text-foreground-subtle uppercase tracking-wider mb-1.5">
-                    Quick Forensic Prompts
+                <div className="px-4 py-2 border-t border-border/40 bg-surface/50">
+                  <p className="text-[10px] font-bold text-foreground-subtle uppercase tracking-wider mb-1.5">
+                    Quick Prompts
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {QUICK_CHIPS.map((chip, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => void handleSend(chip)}
-                        className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 bg-surface-2/70 text-foreground-muted hover:text-foreground hover:border-brand/40 hover:bg-brand/5 transition-all text-left truncate max-w-full"
-                      >
-                        {chip}
-                      </button>
-                    ))}
+                    {QUICK_PROMPTS.map((p, idx) => {
+                      const Icon = p.icon;
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => void handleSend(p.text)}
+                          className="flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full border border-border/70 bg-surface-2/80 text-foreground-muted hover:text-foreground hover:border-brand/40 hover:bg-brand/5 transition-all text-left"
+                        >
+                          <Icon className="w-3 h-3 text-brand shrink-0" />
+                          <span>{p.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Input bar */}
-              <div className="border-t border-border/80 p-3 bg-surface-2/30">
+              {/* Input Area */}
+              <div className="p-3 border-t border-border/70 bg-surface-2/40">
                 <div className="flex items-center gap-2">
                   <input
                     ref={inputRef}
                     value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
                         void handleSend();
                       }
                     }}
                     placeholder={
                       mode === "agent"
-                        ? "Ask Agent to inspect trades, calculate risk, or audit..."
+                        ? "Ask Agent to audit trades, calculate risk, or inspect..."
                         : "Ask trading questions, psychology, or position sizing..."
                     }
                     disabled={sending || !conversationId}
-                    className="flex-1 bg-surface-2 border border-border/80 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30 disabled:opacity-50 placeholder:text-foreground-subtle text-foreground"
+                    className="flex-1 bg-surface border border-border/80 rounded-xl px-3.5 py-2 text-xs sm:text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand/30 disabled:opacity-50 placeholder:text-foreground-subtle text-foreground shadow-xs"
                   />
                   <Button
                     onClick={() => void handleSend()}
                     disabled={!input.trim() || sending || !conversationId}
                     size="default"
-                    className="h-10 px-3.5"
+                    className="h-9 px-3 rounded-xl"
                   >
                     {sending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
-                      <Send className="w-4 h-4" />
+                      <Send className="w-3.5 h-3.5" />
                     )}
                   </Button>
                 </div>

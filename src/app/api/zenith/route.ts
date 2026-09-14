@@ -28,12 +28,32 @@ Be direct, knowledgeable, and professional. Use trader terminology. Be concise â
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let user: { id: string; email?: string } | null = null;
 
-  if (isRateLimited(`zenith:${user.id}:${requestClientKey(req)}`, 30, 60_000)) {
+  // 1. Check Bearer token from authorization header first
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.substring(7).trim();
+    if (token) {
+      const { data: tokenData } = await supabase.auth.getUser(token);
+      if (tokenData?.user) {
+        user = tokenData.user;
+      }
+    }
+  }
+
+  // 2. Fall back to cookie-based session
+  if (!user) {
+    const { data: cookieData } = await supabase.auth.getUser();
+    if (cookieData?.user) {
+      user = cookieData.user;
+    }
+  }
+
+  const userId = user?.id ?? "";
+  const clientKey = userId ? `user:${userId}` : requestClientKey(req);
+
+  if (isRateLimited(`zenith:${clientKey}`, 40, 60_000)) {
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },
       { status: 429 },
@@ -126,7 +146,7 @@ export async function POST(req: NextRequest) {
               (call.args ?? {}) as Record<string, unknown>,
               {
                 supabase,
-                userId: user.id,
+                userId,
                 accountId: body.accountId,
               },
             );

@@ -185,6 +185,16 @@ export async function executeAgentTool(
 ): Promise<{ summary: string; data: Record<string, unknown> }> {
   const { supabase, userId, accountId } = ctx;
 
+  if (toolName !== "calculate_position_size" && !userId) {
+    return {
+      summary: "Authentication required to query journal",
+      data: {
+        error:
+          "User session not detected. Please sign in to connect your private trading journal. You can still ask general trading and position sizing questions.",
+      },
+    };
+  }
+
   switch (toolName) {
     case "get_trades": {
       const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 100);

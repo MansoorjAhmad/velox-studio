@@ -36,6 +36,7 @@ import {
   Sparkles,
   Settings,
   Shield,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -64,8 +65,9 @@ const NAV: NavItem[] = [
 ];
 
 const BOTTOM_NAV: NavItem[] = [
-  { name: "Velox Zenith", href: "/dashboard/zenith",   icon: Sparkles },
-  { name: "Settings",     href: "/dashboard/settings", icon: Settings },
+  { name: "Velox Zenith", href: "/dashboard/zenith",       icon: Sparkles },
+  { name: "Zenith Agent", href: "/dashboard/zenith-agent", icon: Bot },
+  { name: "Settings",     href: "/dashboard/settings",     icon: Settings },
 ];
 
 export function CommandPalette() {

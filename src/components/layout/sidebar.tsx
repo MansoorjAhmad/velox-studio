@@ -26,6 +26,7 @@ import {
   Calendar,
   NotebookPen,
   X,
+  Bot,
 } from "lucide-react";
 import { type LucideIcon } from "lucide-react";
 
@@ -77,6 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
       { name: "Debt Analytics", href: "/dashboard/debts", icon: CreditCard },
       { name: "Risk Calculator", href: "/dashboard/calculator", icon: Calculator },
       { name: "Zenith AI", href: "/dashboard/zenith", icon: Sparkles },
+      { name: "Zenith Agent", href: "/dashboard/zenith-agent", icon: Bot },
       { name: "Settings", href: "/dashboard/settings", icon: Settings },
     ],
   },
