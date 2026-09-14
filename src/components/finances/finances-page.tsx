@@ -614,10 +614,12 @@ function DebtsTab({
           )}{" "}
           total
         </p>
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="w-4 h-4" />
-          Add Debt / Loan
-        </Button>
+        <a href="/dashboard/debts">
+          <Button size="sm" variant="outline">
+            <ArrowUpRight className="w-4 h-4" />
+            Debt Analytics
+          </Button>
+        </a>
       </div>
 
       {debts.length === 0 ? (
