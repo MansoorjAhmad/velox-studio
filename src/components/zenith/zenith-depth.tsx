@@ -209,7 +209,7 @@ function WeeklyReviewPanel({ trades }: { trades: Trade[] }) {
       cacheReviewSynced(entry);
       setCached(entry);
     } else {
-      setError("Couldn't reach the AI engine. Set your Gemini API key in Settings to generate weekly reviews.");
+      setError("Couldn't reach the Velox Zenith engine. Ensure your AI key is configured in Settings to generate weekly reviews.");
     }
   }, [trades, weekStart]);
 

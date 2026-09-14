@@ -1,30 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@/lib/supabase/server";
 import { isRateLimited, requestClientKey } from "@/lib/server/rate-limit";
 import {
-  ZENITH_TOOL_DECLARATIONS,
   executeAgentTool,
   type AgentStep,
 } from "@/lib/zenith/agent-tools";
 
-const AGENT_SYSTEM_INSTRUCTION = `You are Velox Zenith Agent — an institutional AI trading copilot and analytical engine built into Velox Studio.
-You have access to tools that query the trader's actual journal, metrics, trader index (discipline score), tasks, and can log trades or create tasks.
+// Single model — Velox Zenith Intelligence Engine (gemini-3.5-flash-lite)
+const MODEL_NAME = "gemini-3.5-flash-lite";
 
-Guidelines:
-- ALWAYS check real data using tools when asked about performance, trades, win rate, setups, discipline, or tasks. Never guess or hallucinate trade statistics.
-- If the trader asks about their metrics, win rate, profit factor, or drawdown, call get_performance_metrics.
-- If the trader asks about specific trades, recent trades, or symbol performance, call get_trades or get_breakdowns.
-- If the trader asks about their discipline, psychology, revenge trading, or rule violations, call get_trader_index.
-- If the trader describes a trade they just took or asks to log it, call log_trade.
-- If the trader asks to create a task, reminder, or homework, call create_task.
-- If the trader asks for lot size, risk sizing, or contract calculation, call calculate_position_size.
-- Be concise, direct, and institutional. Use professional trader terminology (R:R, expectancy, drawdown, session confluences).
-- Keep text crisp and readable with bullet points and bold metrics where helpful.`;
+// Tool schema descriptions for the prompt-based dispatch
+const TOOL_DESCRIPTIONS = `
+You have access to these tools. To call a tool, output a line with EXACTLY this format (JSON on one line):
+TOOL_CALL: {"tool": "<tool_name>", "args": {<args_json>}}
 
-const CHAT_SYSTEM_INSTRUCTION = `You are Velox Zenith Agent — an AI trading assistant built into Velox Studio.
+Available tools:
+- get_trades: {"limit":number,"symbol":string,"session":string,"setup":string,"direction":string,"status":string}
+- get_performance_metrics: {"symbol":string,"session":string,"setup":string}
+- get_breakdowns: {"dimension":"setup"|"session"|"symbol"|"day_of_week"}
+- get_trader_index: {}
+- log_trade: {"symbol":string,"direction":"LONG"|"SHORT","entry_price":number,"stop_loss":number,"take_profit":number,"exit_price":number,"pnl":number,"setup":string,"session":string}
+- create_task: {"title":string,"priority":"low"|"medium"|"high","category":string,"due_date":string}
+- calculate_position_size: {"symbol":string,"risk_amount":number,"stop_loss_pips":number,"account_type":string}
+
+Rules:
+- When asked about real trade data, metrics, or discipline — call the appropriate tool first.
+- Output TOOL_CALL on its own line, then wait for the TOOL_RESULT before continuing.
+- After receiving TOOL_RESULT, synthesize a direct, professional response using the real data.
+- For conversational messages (greetings, general questions), respond directly without calling tools.
+`;
+
+const AGENT_SYSTEM_INSTRUCTION = `You are Velox Zenith — an institutional AI trading copilot built into Velox Studio.
+${TOOL_DESCRIPTIONS}
+Be concise, direct, and institutional. Use trader terminology (R:R, expectancy, drawdown, confluences). Bullet points and bold metrics where useful.`;
+
+const CHAT_SYSTEM_INSTRUCTION = `You are Velox Zenith — an AI trading assistant built into Velox Studio.
 You help traders with position sizing, risk management, trade analysis, routine building, and trading psychology.
 Be direct, knowledgeable, and professional. Use trader terminology. Be concise — traders want answers, not essays.`;
+
+function parseToolCall(text: string): { tool: string; args: Record<string, unknown> } | null {
+  const match = text.match(/TOOL_CALL:\s*(\{.+\})/);
+  if (!match) return null;
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (typeof parsed.tool === "string") {
+      return { tool: parsed.tool, args: (parsed.args ?? {}) as Record<string, unknown> };
+    }
+  } catch {}
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -36,18 +61,14 @@ export async function POST(req: NextRequest) {
     const token = authHeader.substring(7).trim();
     if (token) {
       const { data: tokenData } = await supabase.auth.getUser(token);
-      if (tokenData?.user) {
-        user = tokenData.user;
-      }
+      if (tokenData?.user) user = tokenData.user;
     }
   }
 
   // 2. Fall back to cookie-based session
   if (!user) {
     const { data: cookieData } = await supabase.auth.getUser();
-    if (cookieData?.user) {
-      user = cookieData.user;
-    }
+    if (cookieData?.user) user = cookieData.user;
   }
 
   const userId = user?.id ?? "";
@@ -93,11 +114,8 @@ export async function POST(req: NextRequest) {
   const isAgentMode = body.mode === "agent";
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Single model — gemini-3.5-flash-lite only
-  const MODEL_NAME = "gemini-3.5-flash-lite";
-
   // ────────────────────────────────────────────────────────────────
-  //  AGENT MODE (Multi-turn Tool Calling Execution)
+  //  AGENT MODE — Prompt-based tool dispatch (works with all models)
   // ────────────────────────────────────────────────────────────────
   if (isAgentMode) {
     try {
@@ -107,83 +125,74 @@ export async function POST(req: NextRequest) {
           typeof body.systemPrompt === "string" && body.systemPrompt
             ? body.systemPrompt
             : AGENT_SYSTEM_INSTRUCTION,
-        tools: [{ functionDeclarations: ZENITH_TOOL_DECLARATIONS }],
+        // No native tools — use prompt-based dispatch for compatibility
       });
 
-      // Format history for Gemini chat
-      const history: Content[] = [];
+      // Build conversation prompt from history
+      let conversationContext = "";
       if (Array.isArray(body.conversationHistory)) {
-        for (const item of body.conversationHistory.slice(-10)) {
-          if (!item.text?.trim()) continue;
-          history.push({
-            role: item.role === "user" ? "user" : "model",
-            parts: [{ text: item.text }],
-          });
+        const recent = body.conversationHistory.slice(-8);
+        if (recent.length > 0) {
+          conversationContext =
+            recent
+              .map((h) => `${h.role === "user" ? "Trader" : "Zenith"}: ${h.text}`)
+              .join("\n") + "\n\n";
         }
       }
 
-      const chat = model.startChat({ history });
-      let response = await chat.sendMessage(body.userMessage);
+      const fullPrompt = `${conversationContext}Trader: ${body.userMessage}`;
 
       const executedSteps: AgentStep[] = [];
+      let currentPrompt = fullPrompt;
+      let finalText = "";
       let turns = 0;
 
-      // Agentic tool-calling loop (max 5 rounds)
+      // Agentic loop: model outputs TOOL_CALL → we execute → feed TOOL_RESULT back
       while (turns < 5) {
-        let functionCalls: ReturnType<typeof response.response.functionCalls>;
-        try {
-          functionCalls = response.response.functionCalls();
-        } catch {
-          // Model returned text-only — no function calls
-          break;
-        }
+        const result = await model.generateContent(currentPrompt);
+        const rawText = result.response.text();
 
-        if (!functionCalls || functionCalls.length === 0) {
+        const toolCall = parseToolCall(rawText);
+
+        if (!toolCall) {
+          // No tool call — this is the final answer
+          // Strip any stray TOOL_CALL lines from response
+          finalText = rawText.replace(/TOOL_CALL:.*$/gm, "").trim();
           break;
         }
 
         turns++;
-        const functionResponseParts = [];
 
-        for (const call of functionCalls) {
-          const result = await executeAgentTool(
-            call.name,
-            (call.args ?? {}) as Record<string, unknown>,
-            {
-              supabase,
-              userId,
-              accountId: body.accountId,
-            },
-          );
+        // Execute the tool
+        const toolResult = await executeAgentTool(
+          toolCall.tool,
+          toolCall.args,
+          { supabase, userId, accountId: body.accountId },
+        );
 
-          executedSteps.push({
-            tool: call.name,
-            args: (call.args ?? {}) as Record<string, unknown>,
-            summary: result.summary,
-            data: result.data,
-          });
+        executedSteps.push({
+          tool: toolCall.tool,
+          args: toolCall.args,
+          summary: toolResult.summary,
+          data: toolResult.data,
+        });
 
-          functionResponseParts.push({
-            functionResponse: {
-              name: call.name,
-              response: result.data,
-            },
-          });
-        }
-
-        response = await chat.sendMessage(functionResponseParts);
+        // Feed result back into the prompt for the next turn
+        const resultJson = JSON.stringify(toolResult.data ?? {}, null, 2);
+        currentPrompt =
+          `${currentPrompt}\n\nZenith: ${rawText}\n\nTOOL_RESULT: ${resultJson}\n\nZenith: `;
       }
 
-      // Extract final text — always safe
-      let textResponse = "";
-      try {
-        textResponse = response.response.text();
-      } catch {
-        textResponse = "Agent completed the requested operation.";
+      // If we hit max turns without a final answer, ask for synthesis
+      if (!finalText && turns >= 5) {
+        const synthResult = await model.generateContent(
+          `${currentPrompt}\n\nBased on all the data above, provide your final concise analysis to the trader.`,
+        );
+        finalText = synthResult.response.text();
       }
 
       return NextResponse.json({
-        text: textResponse,
+        text: finalText || "Analysis complete.",
         steps: executedSteps,
       });
     } catch (err) {
@@ -226,3 +235,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

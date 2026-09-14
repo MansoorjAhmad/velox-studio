@@ -245,7 +245,7 @@ export default function ZenithAgentPage() {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-2 border border-border/80">
               <span className="w-2 h-2 rounded-full bg-profit animate-pulse" />
-              <span className="text-foreground-subtle font-medium">Gemini 2.5 Flash</span>
+              <span className="text-foreground-subtle font-medium">Velox Zenith</span>
             </div>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-2 border border-border/80">
               <Cpu className="w-3.5 h-3.5 text-brand" />
