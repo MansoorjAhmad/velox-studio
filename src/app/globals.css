@@ -52,6 +52,52 @@
   --radius-xl: 1.5rem;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   OBSIDIAN — Premium Dark Theme
+   Warm midnight charcoal. Same DNA as Parchment, inverted.
+   Brand shifts from ink-black → antique gold for legibility.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --theme: dark;
+
+  /* Surfaces — deep warm charcoal, never cold grey-blue */
+  --background: #141210;
+  --surface:    #1c1a17;
+  --surface-2:  #242119;
+  --surface-3:  #2e2b25;
+
+  --foreground:        #f0ece0;
+  --foreground-muted:  #9b9280;
+  --foreground-subtle: #5c5848;
+
+  --border:        #2e2b25;
+  --border-strong: #403c34;
+  --ring:          #5c5848;
+
+  --input: var(--surface);
+  --input-border: var(--border-strong);
+
+  /* Semantic — brighter on dark for legibility */
+  --profit:      #5a9e63;
+  --profit-soft: #5a9e6318;
+  --loss:        #c46050;
+  --loss-soft:   #c4605018;
+  --neutral:     #9b9280;
+
+  --success: #5a9e63;
+  --warning: #d4a44a;
+  --danger:  #c46050;
+  --info:    #6a9ab5;
+
+  /* Brand — antique gold on dark; ink-black was invisible */
+  --brand:            #c9b97a;
+  --brand-hover:      #d4c78c;
+  --brand-soft:       #c9b97a14;
+  --brand-foreground: #141210;
+}
+
 @theme inline {
   /* Map CSS vars → Tailwind color tokens so `bg-surface` etc. work. */
   --color-background:       var(--background);
@@ -109,6 +155,7 @@
     font-feature-settings: "cv11", "ss01";
     font-variation-settings: "opsz" 32;
     letter-spacing: -0.011em;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   /* Ultra-premium luxury serif numbers across all metrics, tables, P&L, widgets, and financial indicators. */

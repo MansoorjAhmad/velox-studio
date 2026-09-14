@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 import { getTradingAccounts } from "@/lib/accounts/actions";
 import type { TradingAccount } from "@/lib/accounts/types";
@@ -395,6 +396,9 @@ export function TopBar({ username, onMenuClick }: TopBarProps) {
             Ctrl K
           </kbd>
         </button>
+
+        {/* Theme Toggle */}
+        <ThemeToggle />
 
         {/* Notification Bell → Trader Index discipline alerts */}
         <Link

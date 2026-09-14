@@ -18,6 +18,7 @@ import {
   ArrowUpRight,
   Check,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function LandingPage() {
   const [terminalTab, setTerminalTab] = useState<"tape" | "curve" | "discipline">("tape");
@@ -56,6 +57,7 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle size="sm" />
             <Link href="/auth/login">
               <Button variant="ghost" size="sm" className="font-medium text-xs tracking-wide">
                 Sign In

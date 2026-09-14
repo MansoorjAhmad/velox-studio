@@ -109,7 +109,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#efece4",
-  colorScheme: "light",
+  colorScheme: "light dark",
   width: "device-width",
   initialScale: 1,
 };
@@ -125,11 +125,19 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Anti-FOUC: reads localStorage synchronously before first paint to avoid theme flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('velox-theme');if(t==='dark'||t==='light'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased font-sans">
         {children}
         <Toaster
           position="bottom-right"
-          theme="light"
+          theme="system"
           richColors={false}
           closeButton
           toastOptions={{

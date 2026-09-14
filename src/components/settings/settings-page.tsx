@@ -44,9 +44,12 @@ import {
   Trash2,
   Check,
   X,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/lib/theme/use-theme";
 
 export function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
@@ -58,6 +61,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [tradingConfig, setTradingConfig] = useState<TradingConfig>(() => getTradingConfig());
   const [configSaved, setConfigSaved] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   // Trading Accounts state
   const [accounts, setAccounts] = useState<TradingAccount[]>([]);
@@ -224,6 +228,92 @@ export function SettingsPage() {
           </p>
         </div>
       </div>
+
+      {/* ── Appearance ─────────────────────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand/10 border border-brand/15 flex items-center justify-center">
+              <Palette className="w-4 h-4 text-brand" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Appearance</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                Choose your workspace theme. Saved across sessions and devices.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-2 gap-3">
+            {/* Parchment — Light */}
+            <button
+              onClick={() => setTheme("light")}
+              className={cn(
+                "relative rounded-xl border-2 p-4 text-left transition-all",
+                theme === "light"
+                  ? "border-brand bg-brand/5"
+                  : "border-border hover:border-border-strong",
+              )}
+            >
+              {theme === "light" && (
+                <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-brand flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-brand-foreground" />
+                </div>
+              )}
+              {/* Preview swatch */}
+              <div
+                className="w-full h-16 rounded-lg mb-3 overflow-hidden border border-black/10"
+                style={{ background: "#efece4" }}
+              >
+                <div className="h-4 border-b border-black/8" style={{ background: "#f6f3e9" }} />
+                <div className="flex gap-1 p-1.5">
+                  <div className="w-8 rounded" style={{ background: "#e2ddc9", height: "24px" }} />
+                  <div className="flex-1 rounded" style={{ background: "#f6f3e9", height: "24px" }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Sun className="w-3.5 h-3.5 text-foreground-muted" />
+                <span className="text-sm font-semibold">Parchment</span>
+              </div>
+              <p className="text-xs text-foreground-subtle mt-0.5">Warm editorial light</p>
+            </button>
+
+            {/* Obsidian — Dark */}
+            <button
+              onClick={() => setTheme("dark")}
+              className={cn(
+                "relative rounded-xl border-2 p-4 text-left transition-all",
+                theme === "dark"
+                  ? "border-brand bg-brand/5"
+                  : "border-border hover:border-border-strong",
+              )}
+            >
+              {theme === "dark" && (
+                <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-brand flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5 text-brand-foreground" />
+                </div>
+              )}
+              {/* Preview swatch */}
+              <div
+                className="w-full h-16 rounded-lg mb-3 overflow-hidden border border-white/10"
+                style={{ background: "#141210" }}
+              >
+                <div className="h-4 border-b border-white/8" style={{ background: "#1c1a17" }} />
+                <div className="flex gap-1 p-1.5">
+                  <div className="w-8 rounded" style={{ background: "#242119", height: "24px" }} />
+                  <div className="flex-1 rounded" style={{ background: "#1c1a17", height: "24px" }} />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Moon className="w-3.5 h-3.5 text-foreground-muted" />
+                <span className="text-sm font-semibold">Obsidian</span>
+              </div>
+              <p className="text-xs text-foreground-subtle mt-0.5">Warm midnight dark</p>
+            </button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Trading Accounts Section */}
       <Card className="border-brand/30">
