@@ -467,9 +467,86 @@ export function TradeList({
         </div>
       )}
 
-      {/* Table View */}
+      {/* ── Mobile Trade Cards (sm and below) ── */}
       {viewMode === "table" && filtered.length > 0 && (
-        <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs animate-fade-in">
+        <div className="sm:hidden space-y-2 animate-fade-in">
+          {filtered.map((t) => {
+            const isProfit = (t.pnl ?? 0) > 0;
+            const isLoss = (t.pnl ?? 0) < 0;
+            return (
+              <div
+                key={t.id}
+                onClick={() => setViewing(t)}
+                className="rounded-xl border border-border bg-surface p-3.5 space-y-2.5 cursor-pointer active:bg-surface-2 transition-colors"
+              >
+                {/* Row 1: Symbol + Direction + P&L */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base font-mono text-foreground">{t.symbol}</span>
+                    <Badge variant={t.direction === "LONG" ? "profit" : "loss"} className="text-[10px] font-mono font-bold">
+                      {t.direction === "LONG" ? <TrendingUp className="w-2.5 h-2.5 mr-0.5" /> : <TrendingDown className="w-2.5 h-2.5 mr-0.5" />}
+                      {t.direction}
+                    </Badge>
+                  </div>
+                  <span className={cn(
+                    "font-mono text-sm font-bold",
+                    isProfit && "text-profit",
+                    isLoss && "text-loss",
+                    !isProfit && !isLoss && "text-foreground-muted"
+                  )}>
+                    {t.pnl != null ? formatCurrency(t.pnl, { sign: true }) : "—"}
+                  </span>
+                </div>
+
+                {/* Row 2: Setup + R + Session */}
+                <div className="flex items-center justify-between text-xs font-mono text-foreground-muted">
+                  <span className="truncate max-w-[160px]">{t.setup || "No setup"}</span>
+                  <div className="flex items-center gap-2">
+                    {t.r_multiple != null && (
+                      <span className={cn("font-bold", t.r_multiple >= 0 ? "text-profit" : "text-loss")}>
+                        {t.r_multiple > 0 ? "+" : ""}{t.r_multiple.toFixed(2)}R
+                      </span>
+                    )}
+                    <span className="text-foreground-subtle">{t.session || "—"}</span>
+                  </div>
+                </div>
+
+                {/* Row 3: Date + Actions */}
+                <div className="flex items-center justify-between pt-1.5 border-t border-border/40">
+                  <span className="text-[11px] font-mono text-foreground-subtle">{timeAgo(t.entry_time)}</span>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setViewing(t)}
+                      className="p-1.5 rounded hover:bg-surface-2 text-foreground-subtle hover:text-foreground"
+                      title="Inspect"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setEditing(t)}
+                      className="p-1.5 rounded hover:bg-surface-2 text-foreground-subtle hover:text-foreground"
+                      title="Edit"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(t)}
+                      className="p-1.5 rounded hover:bg-loss/10 text-foreground-subtle hover:text-loss"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Desktop Table View (hidden on sm and below) ── */}
+      {viewMode === "table" && filtered.length > 0 && (
+        <div className="hidden sm:block rounded-xl border border-border bg-surface overflow-hidden shadow-xs animate-fade-in">
           <div className="overflow-x-auto">
             <table className="w-full text-xs font-sans">
               <thead>
@@ -593,6 +670,7 @@ export function TradeList({
           </div>
         </div>
       )}
+
 
       {/* Trade detail drawer */}
       <TradeDetailDrawer

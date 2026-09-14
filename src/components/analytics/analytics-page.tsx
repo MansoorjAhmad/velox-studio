@@ -387,7 +387,7 @@ export function AnalyticsPage() {
               <p className="text-xs text-foreground-muted">Account performance, win/loss behavior, and calendar edge.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center rounded-full border border-border bg-surface p-1">
+              <div className="flex items-center rounded-full border border-border bg-surface p-1 overflow-x-auto">
                 {timeframes.map((tf) => (
                   <button
                     key={tf}
@@ -406,7 +406,7 @@ export function AnalyticsPage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex rounded-full border border-border bg-surface p-1">
+            <div className="flex rounded-full border border-border bg-surface p-1 overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}

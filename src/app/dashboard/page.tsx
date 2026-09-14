@@ -335,7 +335,7 @@ export default function DashboardPage() {
         (() => {
           const activeAcc = accounts.find((a) => a.id === activeAccId);
           return (
-            <div className="flex items-center justify-between p-3 rounded-xl border border-brand/25 bg-brand/10 backdrop-blur-md animate-fade-in text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border border-brand/25 bg-brand/10 backdrop-blur-md animate-fade-in text-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: activeAcc?.color || "var(--brand)" }} />
                 <span className="font-semibold text-foreground">
@@ -368,7 +368,7 @@ export default function DashboardPage() {
               <p className="text-lg font-bold tracking-tight">Your next decision has a context.</p>
               <p className="text-xs text-foreground-muted mt-1">Read the constraint before you read the chart.</p>
             </div>
-            <div className="md:col-span-8 grid grid-cols-3 gap-2.5">
+            <div className="md:col-span-8 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               <div className="rounded-lg border border-border/80 bg-background/40 p-3">
                 <p className="text-[9px] uppercase tracking-wider text-foreground-subtle font-bold">Risk capacity</p>
                 <p className={cn("font-mono text-lg font-extrabold mt-1", dailyRiskUsed >= tradingConfig.dailyRiskLimitPct * .66 ? "text-loss" : "text-profit")}>

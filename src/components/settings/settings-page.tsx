@@ -317,7 +317,7 @@ export function SettingsPage() {
 
       {/* Trading Accounts Section */}
       <Card className="border-brand/30">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <CardHeader className="flex flex-wrap flex-row items-center justify-between gap-2 pb-3">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
               <Wallet className="w-4 h-4 text-brand" />
@@ -438,7 +438,7 @@ export function SettingsPage() {
               </div>
 
               {/* Add Strategy Form */}
-              <form onSubmit={handleAddStrategy} className="flex gap-2 pt-2">
+              <form onSubmit={handleAddStrategy} className="flex flex-wrap gap-2 pt-2">
                 <Input
                   placeholder="Add new strategy setup (e.g. FVG Invalidation)..."
                   value={newStrategyInput}
@@ -500,7 +500,7 @@ export function SettingsPage() {
               />
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface/60 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface/60 p-3">
             <p className="text-[11px] text-foreground-muted">
               Applies instantly across dashboard risk telemetry, calculator defaults, and number typography.
             </p>
@@ -635,7 +635,7 @@ export function SettingsPage() {
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Broker / Platform</Label>
               <Input
@@ -653,7 +653,7 @@ export function SettingsPage() {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Initial Balance ($)</Label>
               <Input

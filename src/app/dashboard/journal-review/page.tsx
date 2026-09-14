@@ -16,6 +16,7 @@ import {
   Maximize2,
   X,
   Plus,
+  ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ const DEFAULT_CHECKLIST = [
 
 type JournalFilter = "all" | "journaled" | "pending";
 type ChecklistItem = { label: string; checked: boolean };
+type MobileTab = "trades" | "review";
 
 function calculateRR(trade: Trade) {
   if (trade.stop_loss == null || trade.take_profit == null || trade.entry_price == null) return "—";
@@ -57,6 +59,7 @@ export default function JournalReviewPage() {
   const [filter, setFilter] = useState<JournalFilter>("all");
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("trades");
 
   const loadTrades = useCallback(async () => {
     setLoading(true);
@@ -133,9 +136,40 @@ export default function JournalReviewPage() {
         </div>
       </div>
 
+      {/* ── Mobile Tab Bar (hidden on lg+) ── */}
+      <div className="lg:hidden flex rounded-xl border border-border bg-surface-2 p-1 text-xs font-mono font-semibold">
+        <button
+          onClick={() => setMobileTab("trades")}
+          className={cn(
+            "flex-1 rounded-lg py-2 text-center transition-colors",
+            mobileTab === "trades"
+              ? "bg-surface text-foreground font-bold shadow-xs"
+              : "text-foreground-muted hover:text-foreground"
+          )}
+        >
+          Trades ({visible.length})
+        </button>
+        <button
+          onClick={() => setMobileTab("review")}
+          className={cn(
+            "flex-1 rounded-lg py-2 text-center transition-colors",
+            mobileTab === "review"
+              ? "bg-surface text-foreground font-bold shadow-xs"
+              : "text-foreground-muted hover:text-foreground"
+          )}
+        >
+          Review {selected ? `· ${selected.symbol}` : ""}
+        </button>
+      </div>
+
+      {/* ── Desktop: side-by-side grid. Mobile: tab-controlled single column ── */}
       <div className="grid gap-6 lg:grid-cols-[330px_minmax(0,1fr)] items-start">
         {/* Left Sidebar — Trade Selector */}
-        <Card className="h-fit lg:sticky lg:top-20 border-border bg-surface shadow-xs">
+        <Card className={cn(
+          "h-fit lg:sticky lg:top-20 border-border bg-surface shadow-xs",
+          "lg:block",
+          mobileTab === "trades" ? "block" : "hidden"
+        )}>
           <CardHeader className="p-4 pb-3 border-b border-border/60">
             <div className="flex items-center justify-between">
               <CardTitle className="text-xs uppercase font-mono font-bold tracking-wider text-foreground-subtle">
@@ -191,7 +225,10 @@ export default function JournalReviewPage() {
                   return (
                     <button
                       key={trade.id}
-                      onClick={() => setSelectedId(trade.id)}
+                      onClick={() => {
+                        setSelectedId(trade.id);
+                        setMobileTab("review"); // auto-switch on mobile
+                      }}
                       className={cn(
                         "w-full rounded-xl border p-3 text-left transition-all relative block",
                         isSelected
@@ -261,7 +298,19 @@ export default function JournalReviewPage() {
         </Card>
 
         {/* Right Main Content — The 4-Phase Review Workspace */}
-        <div>
+        <div className={cn(
+          "lg:block",
+          mobileTab === "review" ? "block" : "hidden"
+        )}>
+          {/* Mobile back button */}
+          <button
+            onClick={() => setMobileTab("trades")}
+            className="lg:hidden flex items-center gap-1.5 text-xs text-foreground-subtle hover:text-foreground font-mono mb-3 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back to trades
+          </button>
+
           {selected ? (
             <JournalForm
               key={selected.id}
@@ -291,6 +340,7 @@ export default function JournalReviewPage() {
           )}
         </div>
       </div>
+
     </PageTransition>
   );
 }
