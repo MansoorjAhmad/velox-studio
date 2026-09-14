@@ -93,128 +93,136 @@ export async function POST(req: NextRequest) {
   const isAgentMode = body.mode === "agent";
   const genAI = new GoogleGenerativeAI(apiKey);
 
-  // Model fallback list
-  const models = isAgentMode
-    ? ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
-    : ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"];
+  // Single model — gemini-3.5-flash-lite only
+  const MODEL_NAME = "gemini-3.5-flash-lite";
 
   // ────────────────────────────────────────────────────────────────
   //  AGENT MODE (Multi-turn Tool Calling Execution)
   // ────────────────────────────────────────────────────────────────
   if (isAgentMode) {
-    for (const modelName of models) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          systemInstruction:
-            typeof body.systemPrompt === "string" && body.systemPrompt
-              ? body.systemPrompt
-              : AGENT_SYSTEM_INSTRUCTION,
-          tools: [{ functionDeclarations: ZENITH_TOOL_DECLARATIONS }],
-        });
-
-        // Format history for Gemini chat
-        const history: Content[] = [];
-        if (Array.isArray(body.conversationHistory)) {
-          for (const item of body.conversationHistory.slice(-10)) {
-            if (!item.text?.trim()) continue;
-            history.push({
-              role: item.role === "user" ? "user" : "model",
-              parts: [{ text: item.text }],
-            });
-          }
-        }
-
-        const chat = model.startChat({ history });
-        let response = await chat.sendMessage(body.userMessage);
-
-        const executedSteps: AgentStep[] = [];
-        let turns = 0;
-
-        while (turns < 5) {
-          const functionCalls = response.response.functionCalls();
-          if (!functionCalls || functionCalls.length === 0) {
-            break;
-          }
-
-          turns++;
-          const functionResponseParts = [];
-
-          for (const call of functionCalls) {
-            const result = await executeAgentTool(
-              call.name,
-              (call.args ?? {}) as Record<string, unknown>,
-              {
-                supabase,
-                userId,
-                accountId: body.accountId,
-              },
-            );
-
-            executedSteps.push({
-              tool: call.name,
-              args: (call.args ?? {}) as Record<string, unknown>,
-              summary: result.summary,
-              data: result.data,
-            });
-
-            functionResponseParts.push({
-              functionResponse: {
-                name: call.name,
-                response: result.data,
-              },
-            });
-          }
-
-          response = await chat.sendMessage(functionResponseParts);
-        }
-
-        const textResponse = response.response.text();
-        return NextResponse.json({
-          text: textResponse,
-          steps: executedSteps,
-        });
-      } catch (err) {
-        console.error(`Gemini agent error with model ${modelName}:`, err);
-        continue;
-      }
-    }
-
-    return NextResponse.json(
-      { error: "Zenith Agent engine currently unavailable across all models." },
-      { status: 502 },
-    );
-  }
-
-  // ────────────────────────────────────────────────────────────────
-  //  CHAT MODE (Direct Fast Single-Shot Stream/Response)
-  // ────────────────────────────────────────────────────────────────
-  for (const modelName of models) {
     try {
       const model = genAI.getGenerativeModel({
-        model: modelName,
+        model: MODEL_NAME,
         systemInstruction:
           typeof body.systemPrompt === "string" && body.systemPrompt
             ? body.systemPrompt
-            : CHAT_SYSTEM_INSTRUCTION,
+            : AGENT_SYSTEM_INSTRUCTION,
+        tools: [{ functionDeclarations: ZENITH_TOOL_DECLARATIONS }],
       });
 
-      let prompt = body.userMessage;
-      if (Array.isArray(body.conversationHistory) && body.conversationHistory.length > 0) {
-        const historyText = body.conversationHistory
-          .slice(-8)
-          .map((h) => `${h.role === "user" ? "User" : "Zenith"}: ${h.text}`)
-          .join("\n");
-        prompt = `Recent conversation:\n${historyText}\n\nUser: ${body.userMessage}`;
+      // Format history for Gemini chat
+      const history: Content[] = [];
+      if (Array.isArray(body.conversationHistory)) {
+        for (const item of body.conversationHistory.slice(-10)) {
+          if (!item.text?.trim()) continue;
+          history.push({
+            role: item.role === "user" ? "user" : "model",
+            parts: [{ text: item.text }],
+          });
+        }
       }
 
-      const result = await model.generateContent(prompt);
-      return NextResponse.json({ text: result.response.text(), steps: [] });
+      const chat = model.startChat({ history });
+      let response = await chat.sendMessage(body.userMessage);
+
+      const executedSteps: AgentStep[] = [];
+      let turns = 0;
+
+      // Agentic tool-calling loop (max 5 rounds)
+      while (turns < 5) {
+        let functionCalls: ReturnType<typeof response.response.functionCalls>;
+        try {
+          functionCalls = response.response.functionCalls();
+        } catch {
+          // Model returned text-only — no function calls
+          break;
+        }
+
+        if (!functionCalls || functionCalls.length === 0) {
+          break;
+        }
+
+        turns++;
+        const functionResponseParts = [];
+
+        for (const call of functionCalls) {
+          const result = await executeAgentTool(
+            call.name,
+            (call.args ?? {}) as Record<string, unknown>,
+            {
+              supabase,
+              userId,
+              accountId: body.accountId,
+            },
+          );
+
+          executedSteps.push({
+            tool: call.name,
+            args: (call.args ?? {}) as Record<string, unknown>,
+            summary: result.summary,
+            data: result.data,
+          });
+
+          functionResponseParts.push({
+            functionResponse: {
+              name: call.name,
+              response: result.data,
+            },
+          });
+        }
+
+        response = await chat.sendMessage(functionResponseParts);
+      }
+
+      // Extract final text — always safe
+      let textResponse = "";
+      try {
+        textResponse = response.response.text();
+      } catch {
+        textResponse = "Agent completed the requested operation.";
+      }
+
+      return NextResponse.json({
+        text: textResponse,
+        steps: executedSteps,
+      });
     } catch (err) {
-      console.error(`Gemini chat error with model ${modelName}:`, err);
-      continue;
+      console.error("Zenith Agent error:", err);
+      return NextResponse.json(
+        { error: "Zenith Agent encountered an error. Please try again." },
+        { status: 502 },
+      );
     }
   }
 
-  return NextResponse.json({ error: "All Gemini models failed." }, { status: 502 });
+  // ────────────────────────────────────────────────────────────────
+  //  CHAT MODE (Direct Fast Single-Shot Response)
+  // ────────────────────────────────────────────────────────────────
+  try {
+    const model = genAI.getGenerativeModel({
+      model: MODEL_NAME,
+      systemInstruction:
+        typeof body.systemPrompt === "string" && body.systemPrompt
+          ? body.systemPrompt
+          : CHAT_SYSTEM_INSTRUCTION,
+    });
+
+    let prompt = body.userMessage;
+    if (Array.isArray(body.conversationHistory) && body.conversationHistory.length > 0) {
+      const historyText = body.conversationHistory
+        .slice(-8)
+        .map((h) => `${h.role === "user" ? "User" : "Zenith"}: ${h.text}`)
+        .join("\n");
+      prompt = `Recent conversation:\n${historyText}\n\nUser: ${body.userMessage}`;
+    }
+
+    const result = await model.generateContent(prompt);
+    return NextResponse.json({ text: result.response.text(), steps: [] });
+  } catch (err) {
+    console.error("Zenith Chat error:", err);
+    return NextResponse.json(
+      { error: "Zenith Chat encountered an error. Please try again." },
+      { status: 502 },
+    );
+  }
 }
