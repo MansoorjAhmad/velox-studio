@@ -1,34 +1,6 @@
 "use client";
 
-import { callGemini } from "./gemini";
-
-const ZENITH_SYSTEM_PROMPT = `You are Velox Zenith Agent — an AI trading assistant built into Velox Studio.
-You help traders with:
-- Position Sizing & Risk Management (calculate lot sizes for Gold/XAUUSD, Forex, Cent vs Standard Accounts)
-- Logging trades (extract structured trade data from natural language)
-- Creating tasks (parse task descriptions with priority/category)
-- Building routines (suggest daily/weekly trading schedules)
-- Answering trading questions (strategies, psychology, risk management, R:R ratios)
-- Analyzing trading patterns (if the user shares performance data)
-
-Risk & Contract Sizing Rules:
-- Gold (XAUUSD): $1.00 move = $100 per 1.00 Standard Lot.
-- Standard Accounts (USD): 1.00 Lot = 100,000 units ($10/pip on EURUSD).
-- Cent Accounts (USC): $1 USD = 100 USC Cents. Calculations adjust for Cent Lot contracts so traders don't over-leverage.
-
-You are direct, knowledgeable, and professional. Use trader terminology.
-Be concise — traders want answers, not essays.
-
-When the user describes a trade, extract this format for confirmation:
-SYMBOL | DIRECTION | ENTRY | STOP | TP | EXIT | PNL | SETUP | SESSION
-
-When the user wants to create a task, respond with:
-TASK: [title] | PRIORITY: [low/medium/high/urgent] | CATEGORY: [trading/health/work/personal/learning/finance] | DUE: [date or "none"]
-
-When suggesting a routine, format as numbered daily time blocks.
-
-You never handle UI, theme, or backend concerns. You are purely a trading
-productivity assistant.`;
+import type { AgentStep } from "./agent-tools";
 
 export interface ParsedTrade {
   symbol: string;
@@ -55,24 +27,67 @@ export type AgentAction =
   | { type: "routine"; display: string }
   | { type: "none"; display: string };
 
+export interface ChatAgentResult {
+  text: string;
+  steps?: AgentStep[];
+  action: AgentAction;
+  error?: string;
+}
+
+export interface ChatAgentOptions {
+  mode?: "agent" | "chat";
+  accountId?: string | null;
+}
+
 export async function chatWithAgent(
   message: string,
   history: { role: string; text: string }[],
-): Promise<{ text: string; action: AgentAction }> {
-  const contextParts = history.slice(-10).map((h) => `${h.role}: ${h.text}`).join("\n");
-  const fullMessage = contextParts
-    ? `Conversation history:\n${contextParts}\n\nUser: ${message}`
-    : message;
-  const response = await callGemini(ZENITH_SYSTEM_PROMPT, fullMessage);
+  options?: ChatAgentOptions,
+): Promise<ChatAgentResult> {
+  const mode = options?.mode ?? "agent";
 
-  if (!response) {
+  try {
+    const res = await fetch("/api/zenith", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode,
+        userMessage: message,
+        conversationHistory: history.slice(-10),
+        accountId: options?.accountId,
+      }),
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      return {
+        text:
+          errData.error ||
+          "I'm having trouble connecting to Zenith right now. Please try again in a moment.",
+        steps: [],
+        action: { type: "none", display: "" },
+        error: errData.error,
+      };
+    }
+
+    const data = await res.json();
+    const text = data.text || "No response received.";
+    const steps: AgentStep[] = Array.isArray(data.steps) ? data.steps : [];
+
     return {
-      text: "I'm having trouble connecting right now. Please try again in a moment.",
+      text,
+      steps,
+      action: parseAction(text),
+    };
+  } catch (err) {
+    console.error("Failed to chat with Zenith Agent:", err);
+    return {
+      text: "Unable to reach the Zenith Agent engine. Please check your network connection or API settings.",
+      steps: [],
       action: { type: "none", display: "" },
+      error: String(err),
     };
   }
-
-  return { text: response, action: parseAction(response) };
 }
 
 export function parseAction(text: string): AgentAction {

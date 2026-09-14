@@ -24,6 +24,8 @@ import {
   Activity,
   Zap,
   Inbox,
+  BarChart3,
+  Terminal,
 } from "lucide-react";
 import { cn, formatCurrency, formatPercent } from "@/lib/utils";
 import { getZenithData, type ZenithData } from "@/lib/zenith/actions";
@@ -44,6 +46,7 @@ import {
 import { getAiInsights } from "@/lib/zenith/insights-client";
 import { detectPatterns, weeklyPerformanceSummary } from "@/lib/zenith/gemini";
 import { ZenithDepth } from "@/components/zenith/zenith-depth";
+import { ZenithAgentConsole } from "@/components/zenith/zenith-console";
 import {
   AreaChart,
   Area,
@@ -54,6 +57,7 @@ import {
 } from "recharts";
 
 export function ZenithPage() {
+  const [activeTab, setActiveTab] = useState<"console" | "reports">("console");
   const [data, setData] = useState<ZenithData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -175,11 +179,15 @@ export function ZenithPage() {
         pnl: t.pnl,
         rMultiple: t.r_multiple,
         setup: t.setup,
-        holdMinutes: t.entry_time && t.exit_time
-          ? Math.round((new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / 60000)
-          : null,
+        holdMinutes:
+          t.entry_time && t.exit_time
+            ? Math.round(
+                (new Date(t.exit_time).getTime() - new Date(t.entry_time).getTime()) / 60000,
+              )
+            : null,
       })),
-      null, 2,
+      null,
+      2,
     );
     const result = await detectPatterns(tradesJSON);
     setPatterns(result ?? "No patterns detected — log more trades first.");
@@ -189,56 +197,95 @@ export function ZenithPage() {
   const fetchWeeklySummary = useCallback(async () => {
     setWeeklyLoading(true);
     const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
-    const weekTrades = trades.filter((t) =>
-      t.entry_time && new Date(t.entry_time) >= sevenDaysAgo,
+    const weekTrades = trades.filter(
+      (t) => t.entry_time && new Date(t.entry_time) >= sevenDaysAgo,
     );
     const weekPnl = weekTrades.reduce((s, t) => s + (t.pnl ?? 0), 0);
     const weekWins = weekTrades.filter((t) => (t.pnl ?? 0) > 0).length;
-    const weekDataJSON = JSON.stringify({
-      period: `${sevenDaysAgo.toISOString().split("T")[0]} to ${new Date().toISOString().split("T")[0]}`,
-      trades: weekTrades.length,
-      wins: weekWins,
-      losses: weekTrades.length - weekWins,
-      netPnl: weekPnl,
-      winRate: weekTrades.length > 0 ? ((weekWins / weekTrades.length) * 100).toFixed(1) : "0",
-      tradeLog: weekTrades.slice(-20).map((t) => ({
-        date: t.entry_time,
-        symbol: t.symbol,
-        direction: t.direction,
-        pnl: t.pnl,
-        setup: t.setup,
-        session: t.session,
-        rMultiple: t.r_multiple,
-      })),
-    }, null, 2);
+    const weekDataJSON = JSON.stringify(
+      {
+        period: `${sevenDaysAgo.toISOString().split("T")[0]} to ${new Date().toISOString().split("T")[0]}`,
+        trades: weekTrades.length,
+        wins: weekWins,
+        losses: weekTrades.length - weekWins,
+        netPnl: weekPnl,
+        winRate: weekTrades.length > 0 ? ((weekWins / weekTrades.length) * 100).toFixed(1) : "0",
+        tradeLog: weekTrades.slice(-20).map((t) => ({
+          date: t.entry_time,
+          symbol: t.symbol,
+          direction: t.direction,
+          pnl: t.pnl,
+          setup: t.setup,
+          session: t.session,
+          rMultiple: t.r_multiple,
+        })),
+      },
+      null,
+      2,
+    );
     const result = await weeklyPerformanceSummary(weekDataJSON);
     setWeeklySummary(result ?? "Could not generate summary — check your API key.");
     setWeeklyLoading(false);
   }, [trades]);
 
   return (
-    <PageTransition className="space-y-8">
+    <PageTransition className="space-y-6">
       {/* Hero header */}
-      <div className="relative overflow-hidden rounded-xl border border-brand/20 glass p-6">
-
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-brand/15 flex items-center justify-center">
+      <div className="relative overflow-hidden rounded-2xl border border-brand/20 glass p-6 shadow-lg">
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-brand/15 border border-brand/30 flex items-center justify-center shrink-0">
               <Sparkles className="w-6 h-6 text-brand" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold font-display tracking-tight">Velox Zenith</h1>
-              <p className="text-sm text-foreground-muted">
-                AI-powered analysis of your trading performance.
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold font-display tracking-tight">Velox Zenith</h1>
+                <Badge variant="brand" className="text-[10px] font-bold">
+                  v2.0
+                </Badge>
+              </div>
+              <p className="text-sm text-foreground-muted mt-0.5">
+                Institutional AI Trading Copilot &amp; Algorithmic Performance Forensics
               </p>
             </div>
           </div>
-          {trades.length > 0 && (
-            <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
-              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-              Refresh
-            </Button>
-          )}
+
+          <div className="flex items-center gap-3">
+            {/* Tab switch pills */}
+            <div className="flex items-center p-1 rounded-xl bg-surface-2/80 border border-border/80 text-xs">
+              <button
+                onClick={() => setActiveTab("console")}
+                className={cn(
+                  "flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all",
+                  activeTab === "console"
+                    ? "bg-brand text-white shadow-xs"
+                    : "text-foreground-subtle hover:text-foreground",
+                )}
+              >
+                <Terminal className="w-4 h-4" />
+                Agent Console
+              </button>
+              <button
+                onClick={() => setActiveTab("reports")}
+                className={cn(
+                  "flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold transition-all",
+                  activeTab === "reports"
+                    ? "bg-brand text-white shadow-xs"
+                    : "text-foreground-subtle hover:text-foreground",
+                )}
+              >
+                <BarChart3 className="w-4 h-4" />
+                Executive Reports
+              </button>
+            </div>
+
+            {trades.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={load} disabled={loading}>
+                <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                Refresh
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -248,294 +295,339 @@ export function ZenithPage() {
         </Card>
       )}
 
-      {loading ? (
-        <ZenithSkeleton />
-      ) : trades.length === 0 ? (
-        <EmptyState />
-      ) : (
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/*  TAB 1: INTERACTIVE AGENT CONSOLE                             */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      {activeTab === "console" && (
+        <div className="space-y-6">
+          <ZenithAgentConsole />
+        </div>
+      )}
+
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/*  TAB 2: EXECUTIVE REPORTS & FORENSICS                         */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      {activeTab === "reports" && (
         <>
-          {/* KPI strip */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <KpiTile
-              label="Net P&L"
-              value={formatCurrency(metrics.netPnl, { sign: true })}
-              tone={metrics.netPnl >= 0 ? "profit" : "loss"}
-              icon={<TrendingUp className="w-4 h-4" />}
-            />
-            <KpiTile
-              label="Win Rate"
-              value={formatPercent(metrics.winRate)}
-              tone={metrics.winRate >= 0.5 ? "profit" : "neutral"}
-              icon={<Target className="w-4 h-4" />}
-            />
-            <KpiTile
-              label="Profit Factor"
-              value={
-                metrics.profitFactor === Infinity
-                  ? "∞"
-                  : metrics.profitFactor.toFixed(2)
-              }
-              tone={metrics.profitFactor >= 1.5 ? "profit" : "loss"}
-              icon={<Activity className="w-4 h-4" />}
-            />
-            <KpiTile
-              label="Expectancy"
-              value={formatCurrency(metrics.expectancy, { sign: true })}
-              tone={metrics.expectancy >= 0 ? "profit" : "loss"}
-              icon={<Zap className="w-4 h-4" />}
-            />
-          </div>
+          {loading ? (
+            <ZenithSkeleton />
+          ) : trades.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="space-y-6">
+              {/* KPI strip */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <KpiTile
+                  label="Net P&L"
+                  value={formatCurrency(metrics.netPnl, { sign: true })}
+                  tone={metrics.netPnl >= 0 ? "profit" : "loss"}
+                  icon={<TrendingUp className="w-4 h-4" />}
+                />
+                <KpiTile
+                  label="Win Rate"
+                  value={formatPercent(metrics.winRate)}
+                  tone={metrics.winRate >= 0.5 ? "profit" : "neutral"}
+                  icon={<Target className="w-4 h-4" />}
+                />
+                <KpiTile
+                  label="Profit Factor"
+                  value={
+                    metrics.profitFactor === Infinity
+                      ? "∞"
+                      : metrics.profitFactor.toFixed(2)
+                  }
+                  tone={metrics.profitFactor >= 1.5 ? "profit" : "loss"}
+                  icon={<Activity className="w-4 h-4" />}
+                />
+                <KpiTile
+                  label="Expectancy"
+                  value={formatCurrency(metrics.expectancy, { sign: true })}
+                  tone={metrics.expectancy >= 0 ? "profit" : "loss"}
+                  icon={<Zap className="w-4 h-4" />}
+                />
+              </div>
 
-          {/* AI Action buttons row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              onClick={fetchAI}
-              disabled={aiLoading}
-              className="flex items-center gap-3 p-4 rounded-xl border border-brand/25 bg-brand/5 hover:bg-brand/10 hover:border-brand/40 transition-all text-left group"
-            >
-              <div className="w-9 h-9 rounded-lg bg-brand/15 flex items-center justify-center shrink-0 group-hover:bg-brand/25 transition-colors">
-                {aiLoading ? <Loader2 className="w-4 h-4 text-brand animate-spin" /> : <Brain className="w-4 h-4 text-brand" />}
-              </div>
-              <div>
-                <p className="text-sm font-bold">Analyze Performance</p>
-                <p className="text-[10px] text-foreground-subtle">Full AI breakdown of your edge</p>
-              </div>
-            </button>
-
-            <button
-              onClick={fetchPatterns}
-              disabled={patternsLoading}
-              className="flex items-center gap-3 p-4 rounded-xl border border-warning/20 bg-warning/5 hover:bg-warning/10 hover:border-warning/35 transition-all text-left group"
-            >
-              <div className="w-9 h-9 rounded-lg bg-warning/15 flex items-center justify-center shrink-0 group-hover:bg-warning/25 transition-colors">
-                {patternsLoading ? <Loader2 className="w-4 h-4 text-warning animate-spin" /> : <Zap className="w-4 h-4 text-warning" />}
-              </div>
-              <div>
-                <p className="text-sm font-bold">Detect Patterns</p>
-                <p className="text-[10px] text-foreground-subtle">Hidden behavioral patterns</p>
-              </div>
-            </button>
-
-            <button
-              onClick={fetchWeeklySummary}
-              disabled={weeklyLoading}
-              className="flex items-center gap-3 p-4 rounded-xl border border-profit/20 bg-profit/5 hover:bg-profit/10 hover:border-profit/35 transition-all text-left group"
-            >
-              <div className="w-9 h-9 rounded-lg bg-profit/15 flex items-center justify-center shrink-0 group-hover:bg-profit/25 transition-colors">
-                {weeklyLoading ? <Loader2 className="w-4 h-4 text-profit animate-spin" /> : <Lightbulb className="w-4 h-4 text-profit" />}
-              </div>
-              <div>
-                <p className="text-sm font-bold">Summarize My Week</p>
-                <p className="text-[10px] text-foreground-subtle">7-day performance debrief</p>
-              </div>
-            </button>
-          </div>
-
-          {/* AI Insight panel */}
-          <Card glass className="border-brand/20">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-brand" />
-                  <CardTitle className="text-base">AI Analysis</CardTitle>
-                  <Badge variant="brand">Velox Zenith</Badge>
-                </div>
-                {!aiInsight && !aiLoading && (
-                  <Button size="sm" onClick={fetchAI} variant="secondary">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Generate
-                  </Button>
-                )}
-              </div>
-              <CardDescription>
-                Deep-dive into your performance with Velox Zenith AI.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {aiLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <p className="text-xs text-foreground-subtle pt-2 flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Analyzing your trading data...
-                  </p>
-                </div>
-              ) : aiError ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-foreground-muted">{aiError}</p>
-                  <Button size="sm" variant="ghost" onClick={fetchAI}>
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Try again
-                  </Button>
-                </div>
-              ) : aiInsight ? (
-                <div className="space-y-3">
-                  <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-foreground-muted [&_strong]:text-foreground [&_b]:text-foreground whitespace-pre-wrap">
-                    {aiInsight}
+              {/* AI Action buttons row */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={fetchAI}
+                  disabled={aiLoading}
+                  className="flex items-center gap-3 p-4 rounded-xl border border-brand/25 bg-brand/5 hover:bg-brand/10 hover:border-brand/40 transition-all text-left group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-brand/15 flex items-center justify-center shrink-0 group-hover:bg-brand/25 transition-colors">
+                    {aiLoading ? (
+                      <Loader2 className="w-4 h-4 text-brand animate-spin" />
+                    ) : (
+                      <Brain className="w-4 h-4 text-brand" />
+                    )}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={fetchAI}
-                    className="text-xs"
-                  >
-                    <RefreshCw className="w-3 h-3" />
-                    Regenerate
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-foreground-muted">
-                  Click <span className="text-foreground">Generate</span> to let
-                  Velox Zenith analyze your {metrics.closedTrades} closed trades and
-                  surface the #1 thing to fix, your edge, and a tailored routine.
-                </p>
+                  <div>
+                    <p className="text-sm font-bold">Analyze Performance</p>
+                    <p className="text-[10px] text-foreground-subtle">Full AI breakdown of your edge</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={fetchPatterns}
+                  disabled={patternsLoading}
+                  className="flex items-center gap-3 p-4 rounded-xl border border-warning/20 bg-warning/5 hover:bg-warning/10 hover:border-warning/35 transition-all text-left group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-warning/15 flex items-center justify-center shrink-0 group-hover:bg-warning/25 transition-colors">
+                    {patternsLoading ? (
+                      <Loader2 className="w-4 h-4 text-warning animate-spin" />
+                    ) : (
+                      <Zap className="w-4 h-4 text-warning" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Detect Patterns</p>
+                    <p className="text-[10px] text-foreground-subtle">Hidden behavioral patterns</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={fetchWeeklySummary}
+                  disabled={weeklyLoading}
+                  className="flex items-center gap-3 p-4 rounded-xl border border-profit/20 bg-profit/5 hover:bg-profit/10 hover:border-profit/35 transition-all text-left group"
+                >
+                  <div className="w-9 h-9 rounded-lg bg-profit/15 flex items-center justify-center shrink-0 group-hover:bg-profit/25 transition-colors">
+                    {weeklyLoading ? (
+                      <Loader2 className="w-4 h-4 text-profit animate-spin" />
+                    ) : (
+                      <Lightbulb className="w-4 h-4 text-profit" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold">Summarize My Week</p>
+                    <p className="text-[10px] text-foreground-subtle">7-day performance debrief</p>
+                  </div>
+                </button>
+              </div>
+
+              {/* AI Insight panel */}
+              <Card glass className="border-brand/20">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-brand" />
+                      <CardTitle className="text-base">AI Analysis</CardTitle>
+                      <Badge variant="brand">Velox Zenith</Badge>
+                    </div>
+                    {!aiInsight && !aiLoading && (
+                      <Button size="sm" onClick={fetchAI} variant="secondary">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Generate
+                      </Button>
+                    )}
+                  </div>
+                  <CardDescription>
+                    Deep-dive into your performance with Velox Zenith AI.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {aiLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <p className="text-xs text-foreground-subtle pt-2 flex items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Analyzing your trading data...
+                      </p>
+                    </div>
+                  ) : aiError ? (
+                    <div className="space-y-3">
+                      <p className="text-sm text-foreground-muted">{aiError}</p>
+                      <Button size="sm" variant="ghost" onClick={fetchAI}>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Try again
+                      </Button>
+                    </div>
+                  ) : aiInsight ? (
+                    <div className="space-y-3">
+                      <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-foreground-muted [&_strong]:text-foreground [&_b]:text-foreground whitespace-pre-wrap">
+                        {aiInsight}
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={fetchAI}
+                        className="text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Regenerate
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-foreground-muted">
+                      Click <span className="text-foreground">Generate</span> to let
+                      Velox Zenith analyze your {metrics.closedTrades} closed trades and
+                      surface the #1 thing to fix, your edge, and a tailored routine.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Pattern Detection Result Card */}
+              {patterns && (
+                <Card glass className="border-warning/20 bg-warning/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-warning" />
+                        <CardTitle className="text-base">Detected Patterns</CardTitle>
+                        <Badge
+                          variant="outline"
+                          className="border-warning/30 text-warning text-[10px]"
+                        >
+                          Behavioral Analysis
+                        </Badge>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={fetchPatterns}
+                        className="text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Re-scan
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-foreground-muted [&_strong]:text-foreground [&_b]:text-foreground whitespace-pre-wrap">
+                      {patterns}
+                    </div>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
 
-          {/* Pattern Detection Result Card */}
-          {patterns && (
-            <Card glass className="border-warning/20 bg-warning/5">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Zap className="w-5 h-5 text-warning" />
-                    <CardTitle className="text-base">Detected Patterns</CardTitle>
-                    <Badge variant="outline" className="border-warning/30 text-warning text-[10px]">Behavioral Analysis</Badge>
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={fetchPatterns} className="text-xs">
-                    <RefreshCw className="w-3 h-3" /> Re-scan
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-foreground-muted [&_strong]:text-foreground [&_b]:text-foreground whitespace-pre-wrap">
-                  {patterns}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              {/* Weekly Performance Summary Result Card */}
+              {weeklySummary && (
+                <Card glass className="border-profit/20 bg-profit/5">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Lightbulb className="w-5 h-5 text-profit" />
+                        <CardTitle className="text-base">Weekly Performance Debrief</CardTitle>
+                        <Badge variant="profit" className="text-[10px]">
+                          7-Day Review
+                        </Badge>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={fetchWeeklySummary}
+                        className="text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3" /> Refresh
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-foreground-muted [&_strong]:text-foreground [&_b]:text-foreground whitespace-pre-wrap">
+                      {weeklySummary}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Weekly Performance Summary Result Card */}
-          {weeklySummary && (
-            <Card glass className="border-profit/20 bg-profit/5">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Lightbulb className="w-5 h-5 text-profit" />
-                    <CardTitle className="text-base">Weekly Performance Debrief</CardTitle>
-                    <Badge variant="profit" className="text-[10px]">7-Day Review</Badge>
-                  </div>
-                  <Button size="sm" variant="ghost" onClick={fetchWeeklySummary} className="text-xs">
-                    <RefreshCw className="w-3 h-3" /> Refresh
-                  </Button>
+              {/* Local insights */}
+              <div>
+                <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-warning" />
+                  Pattern Insights
+                </h2>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {localInsights.map((insight, i) => (
+                    <InsightCard key={i} insight={insight} />
+                  ))}
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-sm prose-invert max-w-none text-sm leading-relaxed text-foreground-muted [&_strong]:text-foreground [&_b]:text-foreground whitespace-pre-wrap">
-                  {weeklySummary}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
 
-          {/* Local insights */}
-          <div>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-warning" />
-              Pattern Insights
-            </h2>
-            <div className="grid gap-3 md:grid-cols-2">
-              {localInsights.map((insight, i) => (
-                <InsightCard key={i} insight={insight} />
-              ))}
+              {/* Equity curve */}
+              {equityCurve.length > 1 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Equity Curve</CardTitle>
+                    <CardDescription>
+                      Cumulative P&amp;L across {equityCurve.length} closed trades.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={equityCurve}>
+                          <defs>
+                            <linearGradient id="zenithEquity" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.25} />
+                              <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <XAxis
+                            dataKey="index"
+                            stroke="var(--foreground-subtle)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis
+                            stroke="var(--foreground-subtle)"
+                            fontSize={11}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(v) => formatCurrency(v, { compact: true })}
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "var(--surface)",
+                              border: "1px solid var(--border)",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                              color: "var(--foreground)",
+                            }}
+                            labelStyle={{ color: "var(--foreground-subtle)" }}
+                            formatter={(value) => [
+                              formatCurrency(Number(value)),
+                              "Equity",
+                            ]}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="equity"
+                            stroke="var(--brand)"
+                            strokeWidth={2}
+                            fill="url(#zenithEquity)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Breakdown grid */}
+              <div className="grid gap-4 lg:grid-cols-3">
+                <BreakdownCard
+                  title="By Setup"
+                  rows={setupBreakdown}
+                  icon={<Target className="w-4 h-4" />}
+                />
+                <BreakdownCard
+                  title="By Session"
+                  rows={sessionBreakdown}
+                  icon={<Activity className="w-4 h-4" />}
+                />
+                <BreakdownCard
+                  title="By Symbol"
+                  rows={symbolBreakdown}
+                  icon={<TrendingUp className="w-4 h-4" />}
+                />
+              </div>
+
+              {/* Zenith AI Depth: patterns, weekly review, NL query */}
+              <ZenithDepth trades={trades} />
             </div>
-          </div>
-
-          {/* Equity curve */}
-          {equityCurve.length > 1 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Equity Curve</CardTitle>
-                <CardDescription>
-                  Cumulative P&amp;L across {equityCurve.length} closed trades.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={equityCurve}>
-                      <defs>
-                        <linearGradient id="zenithEquity" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.25} />
-                          <stop offset="100%" stopColor="var(--brand)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis
-                        dataKey="index"
-                        stroke="var(--foreground-subtle)"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <YAxis
-                        stroke="var(--foreground-subtle)"
-                        fontSize={11}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(v) => formatCurrency(v, { compact: true })}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: "var(--surface)",
-                          border: "1px solid var(--border)",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                          color: "var(--foreground)",
-                        }}
-                        labelStyle={{ color: "var(--foreground-subtle)" }}
-                        formatter={(value) => [
-                          formatCurrency(Number(value)),
-                          "Equity",
-                        ]}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="equity"
-                        stroke="var(--brand)"
-                        strokeWidth={2}
-                        fill="url(#zenithEquity)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
           )}
-
-          {/* Breakdown grid */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            <BreakdownCard
-              title="By Setup"
-              rows={setupBreakdown}
-              icon={<Target className="w-4 h-4" />}
-            />
-            <BreakdownCard
-              title="By Session"
-              rows={sessionBreakdown}
-              icon={<Activity className="w-4 h-4" />}
-            />
-            <BreakdownCard
-              title="By Symbol"
-              rows={symbolBreakdown}
-              icon={<TrendingUp className="w-4 h-4" />}
-            />
-          </div>
-
-          {/* Zenith AI Depth: patterns, weekly review, NL query */}
-          <ZenithDepth trades={trades} />
         </>
       )}
     </PageTransition>
